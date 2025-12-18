@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Shri Mahakaleshwar Jewellers</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="shop-info">
+                <h1 class="shop-name">Shri Mahakaleshwar Jewellers</h1>
+                <p class="shop-address">Anisabad, Patna, Bihar | GSTIN: 10AABCU9603R1Z1</p>
+            </div>
+            <div class="user-info">
+                <span id="userName">Admin</span>
+                <button onclick="logout()" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="billing.html" class="nav-link">
+                        <i class="fas fa-receipt"></i> New Bill
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="exchange.html" class="nav-link">
+                        <i class="fas fa-exchange-alt"></i> Exchange
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="admin.html" class="nav-link">
+                        <i class="fas fa-cog"></i> Rates & Settings
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="reports.html" class="nav-link">
+                        <i class="fas fa-chart-bar"></i> Reports
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <h2><i class="fas fa-chart-bar"></i> Reports & Analytics</h2>
+            
+            <!-- Quick Stats -->
+            <div class="stats-grid">
+                <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="stat-icon">
+                        <i class="fas fa-rupee-sign"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="totalSales">₹0</h3>
+                        <p>Total Sales</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <div class="stat-icon">
+                        <i class="fas fa-exchange-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="totalBills">0</h3>
+                        <p>Total Bills</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="totalCustomers">0</h3>
+                        <p>Total Customers</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="pendingAmount">₹0</h3>
+                        <p>Pending Payments</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card">
+                <h3><i class="fas fa-filter"></i> Filter Reports</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="dateRange" class="form-label">Date Range</label>
+                        <select id="dateRange" class="form-control">
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="thisWeek">This Week</option>
+                            <option value="thisMonth">This Month</option>
+                            <option value="lastMonth">Last Month</option>
+                            <option value="thisYear">This Year</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="customDateRange" style="display: none;">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="startDate" class="form-label">Start Date</label>
+                                <input type="date" id="startDate" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="endDate" class="form-label">End Date</label>
+                                <input type="date" id="endDate" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="billTypeFilter" class="form-label">Bill Type</label>
+                        <select id="billTypeFilter" class="form-control">
+                            <option value="all">All Types</option>
+                            <option value="sale">Sale Only</option>
+                            <option value="exchange">Exchange Only</option>
+                            <option value="sale_exchange">Sale + Exchange</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="paymentStatusFilter" class="form-label">Payment Status</label>
+                        <select id="paymentStatusFilter" class="form-control">
+                            <option value="all">All Status</option>
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                            <option value="partial">Partial</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button type="button" id="applyFilters" class="btn-primary">
+                        <i class="fas fa-filter"></i> Apply Filters
+                    </button>
+                    <button type="button" id="resetFilters" class="btn-secondary">
+                        <i class="fas fa-redo"></i> Reset Filters
+                    </button>
+                    <button type="button" id="exportData" class="btn-success">
+                        <i class="fas fa-download"></i> Export Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sales Report -->
+            <div class="card">
+                <h3><i class="fas fa-chart-line"></i> Sales Report</h3>
+                <div class="table-container">
+                    <table id="salesReportTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Bill No.</th>
+                                <th>Customer</th>
+                                <th>Type</th>
+                                <th>Items</th>
+                                <th>Metal Value</th>
+                                <th>Making Charge</th>
+                                <th>Tax</th>
+                                <th>Total</th>
+                                <th>Exchange</th>
+                                <th>Net</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Sales data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="salesPagination" class="pagination"></div>
+            </div>
+
+            <!-- Customer Report -->
+            <div class="card">
+                <h3><i class="fas fa-users"></i> Customer Report</h3>
+                <div class="form-group">
+                    <input type="text" id="customerSearch" class="form-control" placeholder="Search by customer name or phone...">
+                </div>
+                <div class="table-container">
+                    <table id="customerReportTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Customer Name</th>
+                                <th>Phone</th>
+                                <th>Total Bills</th>
+                                <th>Total Purchases</th>
+                                <th>Last Purchase</th>
+                                <th>Total Paid</th>
+                                <th>Total Due</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Customer data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Exchange Analysis -->
+            <div class="card">
+                <h3><i class="fas fa-exchange-alt"></i> Exchange Analysis</h3>
+                <div class="analysis-grid">
+                    <div class="analysis-item">
+                        <h4>Total Exchanges</h4>
+                        <p id="totalExchanges">0</p>
+                    </div>
+                    <div class="analysis-item">
+                        <h4>Gold Exchanged</h4>
+                        <p id="goldExchanged">0g</p>
+                    </div>
+                    <div class="analysis-item">
+                        <h4>Silver Exchanged</h4>
+                        <p id="silverExchanged">0g</p>
+                    </div>
+                    <div class="analysis-item">
+                        <h4>Exchange Value</h4>
+                        <p id="totalExchangeValue">₹0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Status Summary -->
+            <div class="card">
+                <h3><i class="fas fa-money-bill-wave"></i> Payment Status Summary</h3>
+                <div class="payment-summary">
+                    <div class="payment-item paid">
+                        <h4>Paid</h4>
+                        <p id="paidCount">0 Bills</p>
+                        <p id="paidAmount">₹0</p>
+                    </div>
+                    <div class="payment-item pending">
+                        <h4>Pending</h4>
+                        <p id="pendingCount">0 Bills</p>
+                        <p id="pendingAmount">₹0</p>
+                    </div>
+                    <div class="payment-item partial">
+                        <h4>Partial</h4>
+                        <p id="partialCount">0 Bills</p>
+                        <p id="partialAmount">₹0</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2024 Shri Mahakaleshwar Jewellers. All rights reserved.</p>
+            <p>Jewellery Billing System v1.0</p>
+        </footer>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // Reports specific JavaScript
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!authManager.checkAuth()) return;
+            
+            // Initialize date pickers
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('startDate').value = today;
+            document.getElementById('endDate').value = today;
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Load initial reports
+            await loadReports();
+        });
+        
+        function setupEventListeners() {
+            // Date range change
+            document.getElementById('dateRange').addEventListener('change', function() {
+                const customRangeDiv = document.getElementById('customDateRange');
+                if (this.value === 'custom') {
+                    customRangeDiv.style.display = 'block';
+                } else {
+                    customRangeDiv.style.display = 'none';
+                }
+            });
+            
+            // Apply filters
+            document.getElementById('applyFilters').addEventListener('click', async () => {
+                await loadReports();
+            });
+            
+            // Reset filters
+            document.getElementById('resetFilters').addEventListener('click', () => {
+                document.getElementById('dateRange').value = 'today';
+                document.getElementById('customDateRange').style.display = 'none';
+                document.getElementById('billTypeFilter').value = 'all';
+                document.getElementById('paymentStatusFilter').value = 'all';
+                loadReports();
+            });
+            
+            // Customer search
+            document.getElementById('customerSearch').addEventListener('input', debounce(async (e) => {
+                await searchCustomers(e.target.value);
+            }, 300));
+            
+            // Export data
+            document.getElementById('exportData').addEventListener('click', exportData);
+        }
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        async function loadReports() {
+            await loadSalesReport();
+            await loadCustomerReport();
+            await loadSummaryData();
+        }
+        
+        async function loadSalesReport(page = 1) {
+            try {
+                const filters = getFilters();
+                let url = `${authManager.apiBase}/bills?page=${page}&limit=10`;
+                
+                if (filters.startDate && filters.endDate) {
+                    url += `&startDate=${filters.startDate}&endDate=${filters.endDate}`;
+                }
+                
+                if (filters.billType !== 'all') {
+                    url += `&billType=${filters.billType}`;
+                }
+                
+                if (filters.paymentStatus !== 'all') {
+                    url += `&paymentStatus=${filters.paymentStatus}`;
+                }
+                
+                const response = await fetch(url, {
+                    headers: authManager.getAuthHeaders()
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displaySalesReport(data.bills);
+                    updateSalesPagination(data);
+                }
+            } catch (error) {
+                console.error('Error loading sales report:', error);
+            }
+        }
+        
+        function getFilters() {
+            const dateRange = document.getElementById('dateRange').value;
+            const filters = {
+                startDate: '',
+                endDate: '',
+                billType: document.getElementById('billTypeFilter').value,
+                paymentStatus: document.getElementById('paymentStatusFilter').value
+            };
+            
+            const today = new Date();
+            
+            switch(dateRange) {
+                case 'today':
+                    filters.startDate = today.toISOString().split('T')[0];
+                    filters.endDate = today.toISOString().split('T')[0];
+                    break;
+                case 'yesterday':
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    filters.startDate = yesterday.toISOString().split('T')[0];
+                    filters.endDate = yesterday.toISOString().split('T')[0];
+                    break;
+                case 'thisWeek':
+                    const startOfWeek = new Date(today);
+                    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+                    filters.startDate = startOfWeek.toISOString().split('T')[0];
+                    filters.endDate = today.toISOString().split('T')[0];
+                    break;
+                case 'thisMonth':
+                    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                    filters.startDate = startOfMonth.toISOString().split('T')[0];
+                    filters.endDate = today.toISOString().split('T')[0];
+                    break;
+                case 'lastMonth':
+                    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                    filters.startDate = lastMonth.toISOString().split('T')[0];
+                    filters.endDate = endOfLastMonth.toISOString().split('T')[0];
+                    break;
+                case 'thisYear':
+                    const startOfYear = new Date(today.getFullYear(), 0, 1);
+                    filters.startDate = startOfYear.toISOString().split('T')[0];
+                    filters.endDate = today.toISOString().split('T')[0];
+                    break;
+                case 'custom':
+                    filters.startDate = document.getElementById('startDate').value;
+                    filters.endDate = document.getElementById('endDate').value;
+                    break;
+            }
+            
+            return filters;
+        }
+        
+        function displaySalesReport(bills) {
+            const tbody = document.querySelector('#salesReportTable tbody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            bills.forEach(bill => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(bill.date).toLocaleDateString()}</td>
+                    <td>${bill.billNumber}</td>
+                    <td>${bill.customerName}</td>
+                    <td><span class="badge ${getBillTypeClass(bill.billType)}">${bill.billType}</span></td>
+                    <td>${bill.items?.length || 0}</td>
+                    <td>₹${bill.totalMetalValue?.toFixed(2) || '0.00'}</td>
+                    <td>₹${bill.totalMakingCharge?.toFixed(2) || '0.00'}</td>
+                    <td>₹${bill.totalTax?.toFixed(2) || '0.00'}</td>
+                    <td>₹${bill.totalAmount?.toFixed(2) || '0.00'}</td>
+                    <td>₹${bill.totalExchangeValue?.toFixed(2) || '0.00'}</td>
+                    <td>₹${bill.netPayable?.toFixed(2) || '0.00'}</td>
+                    <td><span class="badge ${getPaymentStatusClass(bill.paymentStatus)}">${bill.paymentStatus}</span></td>
+                    <td>
+                        <button onclick="viewBill('${bill._id}')" class="btn-sm btn-view">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        function getBillTypeClass(type) {
+            const classes = {
+                'sale': 'badge-success',
+                'exchange': 'badge-warning',
+                'sale_exchange': 'badge-info'
+            };
+            return classes[type] || 'badge-secondary';
+        }
+        
+        function getPaymentStatusClass(status) {
+            const classes = {
+                'paid': 'badge-success',
+                'pending': 'badge-danger',
+                'partial': 'badge-warning'
+            };
+            return classes[status] || 'badge-secondary';
+        }
+        
+        function updateSalesPagination(data) {
+            const pagination = document.getElementById('salesPagination');
+            if (!pagination) return;
+            
+            pagination.innerHTML = '';
+            
+            const totalPages = data.totalPages;
+            const currentPage = data.currentPage;
+            
+            if (currentPage > 1) {
+                const prevBtn = createPaginationButton('<i class="fas fa-chevron-left"></i>', () => loadSalesReport(currentPage - 1));
+                pagination.appendChild(prevBtn);
+            }
+            
+            for (let i = 1; i <= totalPages; i++) {
+                const pageBtn = createPaginationButton(i, () => loadSalesReport(i), i === currentPage);
+                pagination.appendChild(pageBtn);
+            }
+            
+            if (currentPage < totalPages) {
+                const nextBtn = createPaginationButton('<i class="fas fa-chevron-right"></i>', () => loadSalesReport(currentPage + 1));
+                pagination.appendChild(nextBtn);
+            }
+        }
+        
+        function createPaginationButton(content, onClick, isActive = false) {
+            const button = document.createElement('button');
+            button.className = `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`;
+            button.innerHTML = content;
+            button.onclick = onClick;
+            return button;
+        }
+        
+        async function loadCustomerReport() {
+            // This would load customer summary data
+            // For now, we'll show a placeholder
+            const tbody = document.querySelector('#customerReportTable tbody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">Customer report data will appear here</td>
+                    </tr>
+                `;
+            }
+        }
+        
+        async function searchCustomers(searchTerm) {
+            if (searchTerm.length < 2) {
+                await loadCustomerReport();
+                return;
+            }
+            
+            // Implement customer search
+        }
+        
+        async function loadSummaryData() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const response = await fetch(`${authManager.apiBase}/reports/daily?date=${today}`, {
+                    headers: authManager.getAuthHeaders()
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.summary) {
+                    updateSummaryDisplay(data.summary);
+                }
+            } catch (error) {
+                console.error('Error loading summary data:', error);
+            }
+        }
+        
+        function updateSummaryDisplay(summary) {
+            document.getElementById('totalSales').textContent = `₹${summary.totalSales.toLocaleString('en-IN')}`;
+            document.getElementById('totalBills').textContent = summary.totalBills;
+            document.getElementById('totalCustomers').textContent = summary.totalBills; // Simplified
+            document.getElementById('pendingAmount').textContent = `₹${summary.totalDue.toLocaleString('en-IN')}`;
+            
+            // Payment summary
+            document.getElementById('paidAmount').textContent = `₹${summary.totalPaid.toLocaleString('en-IN')}`;
+            document.getElementById('pendingAmount').textContent = `₹${summary.totalDue.toLocaleString('en-IN')}`;
+        }
+        
+        function exportData() {
+            alert('Export functionality would be implemented here');
+        }
+        
+        function viewBill(billId) {
+            window.location.href = `billing.html?view=${billId}`;
+        }
+        
+        window.viewBill = viewBill;
+    </script>
+</body>
+</html>
