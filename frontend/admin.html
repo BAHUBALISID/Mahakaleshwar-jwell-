@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Shri Mahakaleshwar Jewellers</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="shop-info">
+                <h1 class="shop-name">Shri Mahakaleshwar Jewellers</h1>
+                <p class="shop-address">Anisabad, Patna, Bihar | GSTIN: 10AABCU9603R1Z1</p>
+            </div>
+            <div class="user-info">
+                <span id="userName">Admin</span>
+                <button onclick="logout()" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="billing.html" class="nav-link">
+                        <i class="fas fa-receipt"></i> New Bill
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="exchange.html" class="nav-link">
+                        <i class="fas fa-exchange-alt"></i> Exchange
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="admin.html" class="nav-link">
+                        <i class="fas fa-cog"></i> Rates & Settings
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="reports.html" class="nav-link">
+                        <i class="fas fa-chart-bar"></i> Reports
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <h2><i class="fas fa-cog"></i> Admin Settings</h2>
+            
+            <!-- Current Rates Display -->
+            <div class="card">
+                <h3><i class="fas fa-chart-line"></i> Current Rates</h3>
+                <div class="rates-display">
+                    <div class="rate-display-item">
+                        <span class="rate-label">Gold 24K:</span>
+                        <span class="rate-value" id="gold24KDisplay">₹0/kg (₹0/g)</span>
+                    </div>
+                    <div class="rate-display-item">
+                        <span class="rate-label">Gold 22K:</span>
+                        <span class="rate-value" id="gold22KDisplay">₹0/kg (₹0/g)</span>
+                    </div>
+                    <div class="rate-display-item">
+                        <span class="rate-label">Gold 18K:</span>
+                        <span class="rate-value" id="gold18KDisplay">₹0/kg (₹0/g)</span>
+                    </div>
+                    <div class="rate-display-item">
+                        <span class="rate-label">Silver 999:</span>
+                        <span class="rate-value" id="silver999Display">₹0/kg (₹0/g)</span>
+                    </div>
+                    <div class="rate-display-item">
+                        <span class="rate-label">Silver 925:</span>
+                        <span class="rate-value" id="silver925Display">₹0/kg (₹0/g)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Update Rates Form -->
+            <div class="card">
+                <h3><i class="fas fa-edit"></i> Update Rates (Per Kg)</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="gold24K" class="form-label">Gold 24K (₹/kg)</label>
+                        <input type="number" id="gold24K" class="form-control" placeholder="Enter rate per kg" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="gold22K" class="form-label">Gold 22K (₹/kg)</label>
+                        <input type="number" id="gold22K" class="form-control" placeholder="Enter rate per kg" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="gold18K" class="form-label">Gold 18K (₹/kg)</label>
+                        <input type="number" id="gold18K" class="form-control" placeholder="Enter rate per kg" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="silver999" class="form-label">Silver 999 (₹/kg)</label>
+                        <input type="number" id="silver999" class="form-control" placeholder="Enter rate per kg" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="silver925" class="form-label">Silver 925 (₹/kg)</label>
+                        <input type="number" id="silver925" class="form-control" placeholder="Enter rate per kg">
+                    </div>
+                </div>
+                <button type="button" id="updateRates" class="btn-primary">
+                    <i class="fas fa-save"></i> Update Rates
+                </button>
+            </div>
+
+            <!-- Rate History -->
+            <div class="card">
+                <h3><i class="fas fa-history"></i> Rate History</h3>
+                <div class="table-container">
+                    <table id="rateHistoryTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Gold 24K</th>
+                                <th>Gold 22K</th>
+                                <th>Gold 18K</th>
+                                <th>Silver 999</th>
+                                <th>Silver 925</th>
+                                <th>Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rate history will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="pagination" class="pagination"></div>
+            </div>
+
+            <!-- Shop Details -->
+            <div class="card">
+                <h3><i class="fas fa-store"></i> Shop Details</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="shopName" class="form-label">Shop Name</label>
+                        <input type="text" id="shopName" class="form-control" placeholder="Enter shop name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="address" class="form-label">Address</label>
+                        <textarea id="address" class="form-control" rows="2" placeholder="Enter shop address" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="gstin" class="form-label">GSTIN</label>
+                        <input type="text" id="gstin" class="form-control" placeholder="Enter GSTIN" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone" class="form-label">Phone</label>
+                        <input type="tel" id="phone" class="form-control" placeholder="Enter phone number">
+                    </div>
+                    <div class="form-group">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" id="email" class="form-control" placeholder="Enter email address">
+                    </div>
+                </div>
+                <button type="button" id="updateShopDetails" class="btn-primary">
+                    <i class="fas fa-save"></i> Update Shop Details
+                </button>
+            </div>
+
+            <!-- Reports Generator -->
+            <div class="card">
+                <h3><i class="fas fa-chart-bar"></i> Reports Generator</h3>
+                
+                <div class="form-group">
+                    <label for="reportType" class="form-label">Report Type</label>
+                    <select id="reportType" class="form-control">
+                        <option value="daily">Daily Report</option>
+                        <option value="monthly">Monthly Report</option>
+                        <option value="custom">Custom Date Range</option>
+                    </select>
+                </div>
+
+                <!-- Daily Report Config -->
+                <div id="dailyReportConfig" class="report-config">
+                    <div class="form-group">
+                        <label for="reportDate" class="form-label">Select Date</label>
+                        <input type="date" id="reportDate" class="form-control">
+                    </div>
+                </div>
+
+                <!-- Monthly Report Config -->
+                <div id="monthlyReportConfig" class="report-config" style="display: none;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="reportYear" class="form-label">Year</label>
+                            <input type="number" id="reportYear" class="form-control" min="2000" max="2100">
+                        </div>
+                        <div class="form-group">
+                            <label for="reportMonth" class="form-label">Month</label>
+                            <select id="reportMonth" class="form-control">
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Report Config -->
+                <div id="customReportConfig" class="report-config" style="display: none;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="startDate" class="form-label">Start Date</label>
+                            <input type="date" id="startDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="endDate" class="form-label">End Date</label>
+                            <input type="date" id="endDate" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="button" id="generateReport" class="btn-primary">
+                        <i class="fas fa-chart-bar"></i> Generate Report
+                    </button>
+                    <button type="button" id="exportReport" class="btn-secondary">
+                        <i class="fas fa-download"></i> Export Report
+                    </button>
+                </div>
+
+                <!-- Report Result -->
+                <div id="reportResult" class="report-result"></div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2024 Shri Mahakaleshwar Jewellers. All rights reserved.</p>
+            <p>Jewellery Billing System v1.0</p>
+        </footer>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
