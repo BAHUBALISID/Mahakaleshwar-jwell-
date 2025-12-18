@@ -322,3 +322,306 @@ class ExchangeSystem {
     }
     
     // Update purity options for new item
+    updateNewItemPurityOptions(row) {
+        const metalType = row.querySelector('.new-item-metal-type').value;
+        const puritySelect = row.querySelector('.new-item-purity');
+        
+        puritySelect.innerHTML = '<option value="">Select Purity</option>';
+        
+        if (metalType === 'gold') {
+            puritySelect.innerHTML += `
+                <option value="24K">24K</option>
+                <option value="22K">22K</option>
+                <option value="18K">18K</option>
+            `;
+        } else if (metalType === 'silver') {
+            puritySelect.innerHTML += `
+                <option value="999">999</option>
+                <option value="925">925</option>
+            `;
+        }
+    }
+    
+    // Calculate new item value
+    calculateNewItem(row) {
+        if (!this.currentRates) return;
+        
+        const metalType = row.querySelector('.new-item-metal-type').value;
+        const purity = row.querySelector('.new-item-purity').value;
+        const grossWeight = parseFloat(row.querySelector('.new-item-gross-weight').value) || 0;
+        const netWeight = parseFloat(row.querySelector('.new-item-net-weight').value) || 0;
+        const makingType = row.querySelector('.new-item-making-type').value;
+        const makingValue = parseFloat(row.querySelector('.new-item-making-value').value) || 0;
+        
+        if (!metalType || !purity || netWeight <= 0) return;
+        
+        // Get rate per gram
+        const ratePerGram = this.getRatePerGram(metalType, purity);
+        
+        // Calculate metal value
+        const metalValue = netWeight * ratePerGram;
+        
+        // Calculate making charge
+        let makingCharge = 0;
+        if (makingType === 'percentage') {
+            makingCharge = (metalValue * makingValue) / 100;
+        } else {
+            makingCharge = makingValue;
+        }
+        
+        // Calculate total before tax
+        const totalBeforeTax = metalValue + makingCharge;
+        
+        // Calculate GST (3% CGST + 3% SGST)
+        const cgst = (totalBeforeTax * 3) / 100;
+        const sgst = (totalBeforeTax * 3) / 100;
+        const total = totalBeforeTax + cgst + sgst;
+        
+        // Update row display
+        row.querySelector('.new-item-rate-per-gram').textContent = `₹${ratePerGram.toFixed(2)}`;
+        row.querySelector('.new-item-metal-value').textContent = `₹${metalValue.toFixed(2)}`;
+        row.querySelector('.new-item-making-charge').textContent = `₹${makingCharge.toFixed(2)}`;
+        row.querySelector('.new-item-total').textContent = `₹${total.toFixed(2)}`;
+        
+        // Store item data
+        const itemIndex = Array.from(row.parentNode.children).indexOf(row);
+        this.newItems[itemIndex] = {
+            description: row.querySelector('.new-item-description').value,
+            metalType,
+            purity,
+            grossWeight,
+            netWeight,
+            makingChargeType: makingType,
+            makingChargeValue: makingValue,
+            ratePerGram,
+            metalValue,
+            makingCharge,
+            totalBeforeTax,
+            cgst,
+            sgst,
+            total
+        };
+        
+        // Update totals
+        this.updateTotals();
+    }
+    
+    // Get rate per gram
+    getRatePerGram(metalType, purity) {
+        if (!this.currentRates) return 0;
+        
+        const rateMap = {
+            'gold': {
+                '24K': this.currentRates.gold24KPerGram,
+                '22K': this.currentRates.gold22KPerGram,
+                '18K': this.currentRates.gold18KPerGram
+            },
+            'silver': {
+                '999': this.currentRates.silver999PerGram,
+                '925': this.currentRates.silver925PerGram
+            }
+        };
+        
+        return rateMap[metalType]?.[purity] || 0;
+    }
+    
+    // Remove new item row
+    removeNewItemRow(button) {
+        const row = button.closest('.new-item-row');
+        const itemIndex = Array.from(row.parentNode.children).indexOf(row);
+        
+        // Remove from array
+        this.newItems.splice(itemIndex, 1);
+        
+        // Remove row from DOM
+        row.remove();
+        
+        // Update totals
+        this.updateTotals();
+    }
+    
+    // Update totals
+    updateTotals() {
+        // Calculate old items total value
+        this.totals.oldItemsValue = this.exchangeItems.reduce((total, item) => {
+            return total + (item?.exchangeValue || 0);
+        }, 0);
+        
+        // Calculate new items total value
+        let newItemsTotal = 0;
+        this.newItems.forEach(item => {
+            if (item) {
+                newItemsTotal += item.total || 0;
+            }
+        });
+        this.totals.newItemsValue = newItemsTotal;
+        
+        // Calculate net payable/refundable
+        const net = this.totals.newItemsValue - this.totals.oldItemsValue;
+        this.totals.netPayable = Math.abs(net);
+        this.totals.balanceType = net >= 0 ? 'payable' : 'refundable';
+        
+        // Update display
+        this.updateTotalsDisplay();
+    }
+    
+    // Update totals display
+    updateTotalsDisplay() {
+        document.getElementById('oldItemsValue').textContent = `₹${this.totals.oldItemsValue.toFixed(2)}`;
+        document.getElementById('newItemsValue').textContent = `₹${this.totals.newItemsValue.toFixed(2)}`;
+        document.getElementById('netPayable').textContent = `₹${this.totals.netPayable.toFixed(2)}`;
+        
+        // Update balance type display
+        const balanceTypeElement = document.getElementById('balanceType');
+        if (balanceTypeElement) {
+            if (this.totals.balanceType === 'payable') {
+                balanceTypeElement.textContent = 'Amount Payable by Customer';
+                balanceTypeElement.className = 'badge badge-danger';
+            } else {
+                balanceTypeElement.textContent = 'Amount Refundable to Customer';
+                balanceTypeElement.className = 'badge badge-success';
+            }
+        }
+    }
+    
+    // Validate form
+    validateForm() {
+        // Validate customer info
+        const customerName = document.getElementById('customerName').value.trim();
+        if (!customerName) {
+            alert('Please enter customer name');
+            return false;
+        }
+        
+        // Validate exchange items
+        if (this.exchangeItems.length === 0) {
+            alert('Please add at least one exchange item');
+            return false;
+        }
+        
+        // Validate new items
+        if (this.newItems.length === 0) {
+            alert('Please add at least one new item');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // Save exchange transaction
+    async saveExchange() {
+        if (!this.validateForm()) return;
+        
+        // Get customer info
+        this.customer = {
+            name: document.getElementById('customerName').value.trim(),
+            phone: document.getElementById('customerPhone').value.trim(),
+            address: document.getElementById('customerAddress').value.trim()
+        };
+        
+        // Get payment info
+        const paymentMethod = document.getElementById('paymentMethod').value;
+        const paymentStatus = document.getElementById('paymentStatus').value;
+        const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
+        const notes = document.getElementById('notes').value.trim();
+        
+        // Prepare bill data
+        const billData = {
+            billType: 'sale_exchange',
+            customerName: this.customer.name,
+            customerPhone: this.customer.phone,
+            customerAddress: this.customer.address,
+            items: this.newItems.filter(item => item),
+            exchangeItems: this.exchangeItems.filter(item => item),
+            paymentMethod: paymentMethod,
+            paymentStatus: paymentStatus,
+            paidAmount: paidAmount,
+            notes: notes
+        };
+        
+        // Show loading
+        const saveBtn = document.getElementById('saveExchange');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        saveBtn.disabled = true;
+        
+        try {
+            const response = await fetch(`${this.apiBase}/bills`, {
+                method: 'POST',
+                headers: authManager.getAuthHeaders(),
+                body: JSON.stringify(billData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Exchange transaction saved successfully!');
+                this.resetForm();
+            } else {
+                alert('Error saving exchange: ' + (data.message || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error saving exchange:', error);
+            alert('Error saving exchange. Please try again.');
+        } finally {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+    }
+    
+    // Reset form
+    resetForm() {
+        // Clear exchange items
+        this.exchangeItems = [];
+        const exchangeTbody = document.querySelector('#exchangeItemsTable tbody');
+        if (exchangeTbody) {
+            exchangeTbody.innerHTML = '';
+        }
+        
+        // Clear new items
+        this.newItems = [];
+        const newItemsTbody = document.querySelector('#newItemsTable tbody');
+        if (newItemsTbody) {
+            newItemsTbody.innerHTML = '';
+        }
+        
+        // Clear customer info
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerPhone').value = '';
+        document.getElementById('customerAddress').value = '';
+        
+        // Reset payment
+        document.getElementById('paymentMethod').value = 'cash';
+        document.getElementById('paymentStatus').value = 'paid';
+        document.getElementById('paidAmount').value = '0';
+        
+        // Reset notes
+        document.getElementById('notes').value = '';
+        
+        // Reset totals
+        this.totals = {
+            oldItemsValue: 0,
+            newItemsValue: 0,
+            netPayable: 0,
+            balanceType: 'payable'
+        };
+        
+        this.updateTotalsDisplay();
+        
+        // Add first rows
+        this.addExchangeItemRow();
+        this.addNewItemRow();
+    }
+    
+    // Print exchange bill
+    printExchange() {
+        // This would open a print preview with the exchange details
+        alert('Print functionality would open print preview');
+    }
+}
+
+// Initialize exchange system when page loads
+document.addEventListener('DOMContentLoaded', async () => {
+    window.exchangeSystem = new ExchangeSystem();
+    await exchangeSystem.initialize();
+});
