@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exchange - Shri Mahakaleshwar Jewellers</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="shop-info">
+                <h1 class="shop-name">Shri Mahakaleshwar Jewellers</h1>
+                <p class="shop-address">Anisabad, Patna, Bihar | GSTIN: 10AABCU9603R1Z1</p>
+            </div>
+            <div class="user-info">
+                <span id="userName">Admin</span>
+                <button onclick="logout()" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="billing.html" class="nav-link">
+                        <i class="fas fa-receipt"></i> New Bill
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="exchange.html" class="nav-link">
+                        <i class="fas fa-exchange-alt"></i> Exchange
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="admin.html" class="nav-link">
+                        <i class="fas fa-cog"></i> Rates & Settings
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="reports.html" class="nav-link">
+                        <i class="fas fa-chart-bar"></i> Reports
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="rate-display">
+                <h4><i class="fas fa-chart-line"></i> Current Rates</h4>
+                <div id="ratesInfo">
+                    <p>Loading rates...</p>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <h2><i class="fas fa-exchange-alt"></i> Exchange System</h2>
+            
+            <!-- Customer Information -->
+            <div class="card">
+                <h3><i class="fas fa-user"></i> Customer Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="customerName" class="form-label">Customer Name *</label>
+                        <input type="text" id="customerName" class="form-control" placeholder="Enter customer name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerPhone" class="form-label">Phone Number</label>
+                        <input type="tel" id="customerPhone" class="form-control" placeholder="Enter phone number">
+                    </div>
+                    <div class="form-group">
+                        <label for="customerAddress" class="form-label">Address</label>
+                        <textarea id="customerAddress" class="form-control" rows="2" placeholder="Enter address"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Exchange Items (Old Items) -->
+            <div class="card">
+                <h3><i class="fas fa-arrow-left"></i> Old Items (Exchange Items)</h3>
+                <table id="exchangeItemsTable" class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Metal</th>
+                            <th>Purity</th>
+                            <th>Weight (g)</th>
+                            <th>Wastage %</th>
+                            <th>Rate/g</th>
+                            <th>Value</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Exchange items will be added here -->
+                    </tbody>
+                </table>
+                <button type="button" id="addExchangeItem" class="btn-secondary">
+                    <i class="fas fa-plus"></i> Add Exchange Item
+                </button>
+            </div>
+
+            <!-- New Items -->
+            <div class="card">
+                <h3><i class="fas fa-arrow-right"></i> New Items</h3>
+                <table id="newItemsTable" class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Metal</th>
+                            <th>Purity</th>
+                            <th>Gross (g)</th>
+                            <th>Net (g)</th>
+                            <th>Making Type</th>
+                            <th>Making Value</th>
+                            <th>Rate/g</th>
+                            <th>Metal Value</th>
+                            <th>Making Charge</th>
+                            <th>Total</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- New items will be added here -->
+                    </tbody>
+                </table>
+                <button type="button" id="addNewItem" class="btn-secondary">
+                    <i class="fas fa-plus"></i> Add New Item
+                </button>
+            </div>
+
+            <!-- Exchange Summary -->
+            <div class="card summary-card">
+                <h3><i class="fas fa-balance-scale"></i> Exchange Summary</h3>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="summary-label">Total Old Items Value:</span>
+                        <span class="summary-value" id="oldItemsValue">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total New Items Value:</span>
+                        <span class="summary-value" id="newItemsValue">₹0.00</span>
+                    </div>
+                    <div class="summary-item total">
+                        <span class="summary-label">Net Amount:</span>
+                        <span class="summary-value" id="netPayable">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Status:</span>
+                        <span class="summary-value badge" id="balanceType">Payable by Customer</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Information -->
+            <div class="card">
+                <h3><i class="fas fa-credit-card"></i> Payment Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="paymentMethod" class="form-label">Payment Method</label>
+                        <select id="paymentMethod" class="form-control">
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="upi">UPI</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentStatus" class="form-label">Payment Status</label>
+                        <select id="paymentStatus" class="form-control">
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                            <option value="partial">Partial</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="paidAmount" class="form-label">Paid Amount</label>
+                        <input type="number" id="paidAmount" class="form-control" value="0" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="card">
+                <h3><i class="fas fa-sticky-note"></i> Notes</h3>
+                <div class="form-group">
+                    <textarea id="notes" class="form-control" rows="3" placeholder="Any additional notes..."></textarea>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button type="button" id="calculateExchange" class="btn-secondary">
+                    <i class="fas fa-calculator"></i> Calculate
+                </button>
+                <button type="button" id="saveExchange" class="btn-primary">
+                    <i class="fas fa-save"></i> Save Exchange
+                </button>
+                <button type="button" id="printExchange" class="btn-print-large">
+                    <i class="fas fa-print"></i> Print Bill
+                </button>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2024 Shri Mahakaleshwar Jewellers. All rights reserved.</p>
+            <p>Jewellery Billing System v1.0</p>
+        </footer>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/exchange.js"></script>
+</body>
+</html>
