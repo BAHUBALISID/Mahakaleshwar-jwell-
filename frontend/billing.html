@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Bill - Shri Mahakaleshwar Jewellers</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="shop-info">
+                <h1 class="shop-name">Shri Mahakaleshwar Jewellers</h1>
+                <p class="shop-address">Anisabad, Patna, Bihar | GSTIN: 10AABCU9603R1Z1</p>
+            </div>
+            <div class="user-info">
+                <span id="userName">Admin</span>
+                <button onclick="logout()" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="billing.html" class="nav-link">
+                        <i class="fas fa-receipt"></i> New Bill
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="exchange.html" class="nav-link">
+                        <i class="fas fa-exchange-alt"></i> Exchange
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="admin.html" class="nav-link">
+                        <i class="fas fa-cog"></i> Rates & Settings
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="reports.html" class="nav-link">
+                        <i class="fas fa-chart-bar"></i> Reports
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="rate-display">
+                <h4><i class="fas fa-chart-line"></i> Current Rates</h4>
+                <div id="ratesInfo">
+                    <p>Loading rates...</p>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="billing-header">
+                <h2><i class="fas fa-receipt"></i> Create New Bill</h2>
+                <div class="bill-info">
+                    <span class="bill-number">Bill No: <span id="billNumber">SMJ-20240101-0001</span></span>
+                    <span class="bill-total">Total: <span id="billTotal">₹0.00</span></span>
+                </div>
+            </div>
+
+            <!-- Customer Information -->
+            <div class="card">
+                <h3><i class="fas fa-user"></i> Customer Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="customerName" class="form-label">Customer Name *</label>
+                        <input type="text" id="customerName" class="form-control" placeholder="Enter customer name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerPhone" class="form-label">Phone Number</label>
+                        <input type="tel" id="customerPhone" class="form-control" placeholder="Enter phone number">
+                    </div>
+                    <div class="form-group">
+                        <label for="customerAddress" class="form-label">Address</label>
+                        <textarea id="customerAddress" class="form-control" rows="2" placeholder="Enter address"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bill Type -->
+            <div class="card">
+                <h3><i class="fas fa-file-invoice"></i> Bill Type</h3>
+                <div class="form-group">
+                    <select id="billType" class="form-control">
+                        <option value="sale">Sale Only</option>
+                        <option value="exchange">Exchange Only</option>
+                        <option value="sale_exchange">Sale + Exchange</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Exchange Items Section -->
+            <div class="card exchange-section" id="exchangeSection" style="display: none;">
+                <h3><i class="fas fa-exchange-alt"></i> Exchange Items (Old Items)</h3>
+                <table id="exchangeItemsTable" class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Metal</th>
+                            <th>Purity</th>
+                            <th>Weight (g)</th>
+                            <th>Wastage %</th>
+                            <th>Rate/g</th>
+                            <th>Value</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Exchange items will be added here -->
+                    </tbody>
+                </table>
+                <button type="button" id="addExchangeItem" class="btn-secondary">
+                    <i class="fas fa-plus"></i> Add Exchange Item
+                </button>
+            </div>
+
+            <!-- New Items -->
+            <div class="card">
+                <h3><i class="fas fa-gem"></i> New Items</h3>
+                <table id="itemsTable" class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Metal</th>
+                            <th>Purity</th>
+                            <th>Gross (g)</th>
+                            <th>Net (g)</th>
+                            <th>Making Type</th>
+                            <th>Making Value</th>
+                            <th>Rate/g</th>
+                            <th>Metal Value</th>
+                            <th>Making Charge</th>
+                            <th>Total</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Items will be added here -->
+                    </tbody>
+                </table>
+                <button type="button" id="addItem" class="btn-secondary">
+                    <i class="fas fa-plus"></i> Add Item
+                </button>
+            </div>
+
+            <!-- Totals -->
+            <div class="card summary-card">
+                <h3><i class="fas fa-calculator"></i> Bill Summary</h3>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="summary-label">Total Metal Value:</span>
+                        <span class="summary-value" id="totalMetalValue">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Making Charge:</span>
+                        <span class="summary-value" id="totalMakingCharge">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Before Tax:</span>
+                        <span class="summary-value" id="totalBeforeTax">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">CGST (3%):</span>
+                        <span class="summary-value" id="cgstAmount">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">SGST (3%):</span>
+                        <span class="summary-value" id="sgstAmount">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Tax:</span>
+                        <span class="summary-value" id="totalTax">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Bill Amount:</span>
+                        <span class="summary-value" id="totalAmount">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Exchange Value:</span>
+                        <span class="summary-value" id="totalExchangeValue">₹0.00</span>
+                    </div>
+                    <div class="summary-item total">
+                        <span class="summary-label">Net Payable/Refundable:</span>
+                        <span class="summary-value" id="netPayable">₹0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Status:</span>
+                        <span class="summary-value badge" id="balanceType">Payable by Customer</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Information -->
+            <div class="card">
+                <h3><i class="fas fa-credit-card"></i> Payment Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="paymentMethod" class="form-label">Payment Method</label>
+                        <select id="paymentMethod" class="form-control">
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="upi">UPI</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentStatus" class="form-label">Payment Status</label>
+                        <select id="paymentStatus" class="form-control">
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                            <option value="partial">Partial</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="paidAmountGroup" style="display: none;">
+                        <label for="paidAmount" class="form-label">Paid Amount</label>
+                        <input type="number" id="paidAmount" class="form-control" value="0" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="card">
+                <h3><i class="fas fa-sticky-note"></i> Notes</h3>
+                <div class="form-group">
+                    <textarea id="notes" class="form-control" rows="3" placeholder="Any additional notes..."></textarea>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button type="button" id="calculateTotals" class="btn-secondary">
+                    <i class="fas fa-calculator"></i> Calculate
+                </button>
+                <button type="button" id="saveBill" class="btn-primary">
+                    <i class="fas fa-save"></i> Save Bill
+                </button>
+                <button type="button" id="printBill" class="btn-print-large">
+                    <i class="fas fa-print"></i> Print Bill
+                </button>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2024 Shri Mahakaleshwar Jewellers. All rights reserved.</p>
+            <p>Jewellery Billing System v1.0</p>
+        </footer>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/billing.js"></script>
+</body>
+</html>
