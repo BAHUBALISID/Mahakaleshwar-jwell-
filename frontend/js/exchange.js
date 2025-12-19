@@ -1,627 +1,552 @@
-// Exchange System JavaScript
+// Exchange System Module
+
 class ExchangeSystem {
     constructor() {
-        this.exchangeItems = [];
-        this.newItems = [];
-        this.currentRates = null;
-        this.customer = {
-            name: '',
-            phone: '',
-            address: ''
-        };
-        this.totals = {
-            oldItemsValue: 0,
-            newItemsValue: 0,
-            netPayable: 0,
-            balanceType: 'payable' // payable or refundable
-        };
-        
-        this.apiBase = window.location.origin.includes('localhost') 
-            ? 'http://localhost:5000/api' 
-            : '/api';
+        this.apiBase = 'http://localhost:5000/api';
+        this.token = window.auth.getToken();
+        this.rates = {};
+        this.exchangeCalculator = new ExchangeCalculator();
+        this.init();
     }
-    
-    // Initialize exchange system
-    async initialize() {
-        if (!authManager.checkAuth()) return false;
-        
-        // Load current rates
+
+    async init() {
         await this.loadRates();
-        
-        // Set up event listeners
         this.setupEventListeners();
-        
-        // Add first exchange item row
-        this.addExchangeItemRow();
-        
-        // Add first new item row
-        this.addNewItemRow();
-        
-        // Update totals
-        this.updateTotals();
-        
-        return true;
+        this.setupExchangeCalculator();
     }
-    
-    // Load current rates
+
     async loadRates() {
         try {
-            const response = await fetch(`${this.apiBase}/rates/current`, {
-                headers: authManager.getAuthHeaders()
-            });
-            
-            const data = await response.json();
-            
-            if (data.success && data.rates) {
-                this.currentRates = data.rates;
-                this.displayRates();
-            }
-        } catch (error) {
-            console.error('Error loading rates:', error);
-            alert('Error loading current rates. Please try again.');
-        }
-    }
-    
-    // Display rates
-    displayRates() {
-        if (!this.currentRates) return;
-        
-        const ratesInfo = document.getElementById('ratesInfo');
-        if (ratesInfo) {
-            ratesInfo.innerHTML = `
-                <span class="rate-badge">Gold 24K: ₹${(this.currentRates.gold24K / 100000).toFixed(2)}/g</span>
-                <span class="rate-badge">Gold 22K: ₹${(this.currentRates.gold22K / 100000).toFixed(2)}/g</span>
-                <span class="rate-badge">Gold 18K: ₹${(this.currentRates.gold18K / 100000).toFixed(2)}/g</span>
-                <span class="rate-badge">Silver 999: ₹${(this.currentRates.silver999 / 1000).toFixed(2)}/g</span>
-                <span class="rate-badge">Silver 925: ₹${(this.currentRates.silver925 / 1000).toFixed(2)}/g</span>
-            `;
-        }
-    }
-    
-    // Setup event listeners
-    setupEventListeners() {
-        // Add exchange item button
-        const addExchangeBtn = document.getElementById('addExchangeItem');
-        if (addExchangeBtn) {
-            addExchangeBtn.addEventListener('click', () => this.addExchangeItemRow());
-        }
-        
-        // Add new item button
-        const addNewItemBtn = document.getElementById('addNewItem');
-        if (addNewItemBtn) {
-            addNewItemBtn.addEventListener('click', () => this.addNewItemRow());
-        }
-        
-        // Calculate button
-        const calculateBtn = document.getElementById('calculateExchange');
-        if (calculateBtn) {
-            calculateBtn.addEventListener('click', () => this.updateTotals());
-        }
-        
-        // Save exchange button
-        const saveBtn = document.getElementById('saveExchange');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => this.saveExchange());
-        }
-        
-        // Print button
-        const printBtn = document.getElementById('printExchange');
-        if (printBtn) {
-            printBtn.addEventListener('click', () => this.printExchange());
-        }
-        
-        // Metal type change listeners will be added in row creation
-    }
-    
-    // Add exchange item row (old item)
-    addExchangeItemRow() {
-        const tbody = document.querySelector('#exchangeItemsTable tbody');
-        if (!tbody) return;
-        
-        const row = document.createElement('tr');
-        row.className = 'exchange-item-row';
-        row.innerHTML = `
-            <td>
-                <input type="text" class="form-control exchange-description" placeholder="Item description">
-            </td>
-            <td>
-                <select class="form-control exchange-metal-type" required>
-                    <option value="">Select</option>
-                    <option value="gold">Gold</option>
-                    <option value="silver">Silver</option>
-                </select>
-            </td>
-            <td>
-                <select class="form-control exchange-purity" required>
-                    <option value="">Select Purity</option>
-                </select>
-            </td>
-            <td>
-                <input type="number" class="form-control exchange-weight" step="0.001" placeholder="0.000" required>
-            </td>
-            <td>
-                <input type="number" class="form-control exchange-wastage" step="0.01" placeholder="0" value="2" min="0" max="100">
-                <small class="text-muted">%</small>
-            </td>
-            <td class="exchange-rate-per-gram">₹0.00</td>
-            <td class="exchange-item-value">₹0.00</td>
-            <td>
-                <button type="button" class="btn-danger btn-sm" onclick="exchangeSystem.removeExchangeItemRow(this)">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        `;
-        
-        tbody.appendChild(row);
-        
-        // Set up event listeners
-        this.setupExchangeRowListeners(row);
-    }
-    
-    // Setup event listeners for exchange row
-    setupExchangeRowListeners(row) {
-        const metalTypeSelect = row.querySelector('.exchange-metal-type');
-        metalTypeSelect.addEventListener('change', () => this.updateExchangePurityOptions(row));
-        
-        const inputs = row.querySelectorAll('input, select');
-        inputs.forEach(input => {
-            input.addEventListener('change', () => this.calculateExchangeItem(row));
-            input.addEventListener('input', () => this.calculateExchangeItem(row));
-        });
-        
-        // Trigger initial purity options update
-        this.updateExchangePurityOptions(row);
-    }
-    
-    // Update purity options for exchange item
-    updateExchangePurityOptions(row) {
-        const metalType = row.querySelector('.exchange-metal-type').value;
-        const puritySelect = row.querySelector('.exchange-purity');
-        
-        puritySelect.innerHTML = '<option value="">Select Purity</option>';
-        
-        if (metalType === 'gold') {
-            puritySelect.innerHTML += `
-                <option value="24K">24K</option>
-                <option value="22K">22K</option>
-                <option value="18K">18K</option>
-            `;
-        } else if (metalType === 'silver') {
-            puritySelect.innerHTML += `
-                <option value="999">999</option>
-                <option value="925">925</option>
-            `;
-        }
-    }
-    
-    // Calculate exchange item value
-    calculateExchangeItem(row) {
-        if (!this.currentRates) return;
-        
-        const metalType = row.querySelector('.exchange-metal-type').value;
-        const purity = row.querySelector('.exchange-purity').value;
-        const weight = parseFloat(row.querySelector('.exchange-weight').value) || 0;
-        const wastage = parseFloat(row.querySelector('.exchange-wastage').value) || 0;
-        
-        if (!metalType || !purity || weight <= 0) return;
-        
-        // Get rate per gram
-        const ratePerGram = this.getRatePerGram(metalType, purity);
-        
-        // Calculate metal value
-        const metalValue = weight * ratePerGram;
-        
-        // Apply wastage deduction
-        const wastageDeduction = (metalValue * wastage) / 100;
-        const exchangeValue = metalValue - wastageDeduction;
-        
-        // Update row display
-        row.querySelector('.exchange-rate-per-gram').textContent = `₹${ratePerGram.toFixed(2)}`;
-        row.querySelector('.exchange-item-value').textContent = `₹${exchangeValue.toFixed(2)}`;
-        
-        // Store item data
-        const itemIndex = Array.from(row.parentNode.children).indexOf(row);
-        this.exchangeItems[itemIndex] = {
-            description: row.querySelector('.exchange-description').value,
-            metalType,
-            purity,
-            weight,
-            wastageDeduction: wastage,
-            ratePerGram,
-            metalValue,
-            exchangeValue
-        };
-        
-        // Update totals
-        this.updateTotals();
-    }
-    
-    // Remove exchange item row
-    removeExchangeItemRow(button) {
-        const row = button.closest('.exchange-item-row');
-        const itemIndex = Array.from(row.parentNode.children).indexOf(row);
-        
-        // Remove from array
-        this.exchangeItems.splice(itemIndex, 1);
-        
-        // Remove row from DOM
-        row.remove();
-        
-        // Update totals
-        this.updateTotals();
-    }
-    
-    // Add new item row
-    addNewItemRow() {
-        const tbody = document.querySelector('#newItemsTable tbody');
-        if (!tbody) return;
-        
-        const row = document.createElement('tr');
-        row.className = 'new-item-row';
-        row.innerHTML = `
-            <td>
-                <input type="text" class="form-control new-item-description" placeholder="Item description" required>
-            </td>
-            <td>
-                <select class="form-control new-item-metal-type" required>
-                    <option value="">Select</option>
-                    <option value="gold">Gold</option>
-                    <option value="silver">Silver</option>
-                </select>
-            </td>
-            <td>
-                <select class="form-control new-item-purity" required>
-                    <option value="">Select Purity</option>
-                </select>
-            </td>
-            <td>
-                <input type="number" class="form-control new-item-gross-weight" step="0.001" placeholder="0.000" required>
-            </td>
-            <td>
-                <input type="number" class="form-control new-item-net-weight" step="0.001" placeholder="0.000" required>
-            </td>
-            <td>
-                <select class="form-control new-item-making-type">
-                    <option value="percentage">%</option>
-                    <option value="fixed">₹</option>
-                </select>
-            </td>
-            <td>
-                <input type="number" class="form-control new-item-making-value" step="0.01" placeholder="0.00" required>
-            </td>
-            <td class="new-item-rate-per-gram">₹0.00</td>
-            <td class="new-item-metal-value">₹0.00</td>
-            <td class="new-item-making-charge">₹0.00</td>
-            <td class="new-item-total">₹0.00</td>
-            <td>
-                <button type="button" class="btn-danger btn-sm" onclick="exchangeSystem.removeNewItemRow(this)">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        `;
-        
-        tbody.appendChild(row);
-        
-        // Set up event listeners
-        this.setupNewItemRowListeners(row);
-    }
-    
-    // Setup event listeners for new item row
-    setupNewItemRowListeners(row) {
-        const metalTypeSelect = row.querySelector('.new-item-metal-type');
-        metalTypeSelect.addEventListener('change', () => this.updateNewItemPurityOptions(row));
-        
-        const inputs = row.querySelectorAll('input, select');
-        inputs.forEach(input => {
-            input.addEventListener('change', () => this.calculateNewItem(row));
-            input.addEventListener('input', () => this.calculateNewItem(row));
-        });
-        
-        // Trigger initial purity options update
-        this.updateNewItemPurityOptions(row);
-    }
-    
-    // Update purity options for new item
-    updateNewItemPurityOptions(row) {
-        const metalType = row.querySelector('.new-item-metal-type').value;
-        const puritySelect = row.querySelector('.new-item-purity');
-        
-        puritySelect.innerHTML = '<option value="">Select Purity</option>';
-        
-        if (metalType === 'gold') {
-            puritySelect.innerHTML += `
-                <option value="24K">24K</option>
-                <option value="22K">22K</option>
-                <option value="18K">18K</option>
-            `;
-        } else if (metalType === 'silver') {
-            puritySelect.innerHTML += `
-                <option value="999">999</option>
-                <option value="925">925</option>
-            `;
-        }
-    }
-    
-    // Calculate new item value
-    calculateNewItem(row) {
-        if (!this.currentRates) return;
-        
-        const metalType = row.querySelector('.new-item-metal-type').value;
-        const purity = row.querySelector('.new-item-purity').value;
-        const grossWeight = parseFloat(row.querySelector('.new-item-gross-weight').value) || 0;
-        const netWeight = parseFloat(row.querySelector('.new-item-net-weight').value) || 0;
-        const makingType = row.querySelector('.new-item-making-type').value;
-        const makingValue = parseFloat(row.querySelector('.new-item-making-value').value) || 0;
-        
-        if (!metalType || !purity || netWeight <= 0) return;
-        
-        // Get rate per gram
-        const ratePerGram = this.getRatePerGram(metalType, purity);
-        
-        // Calculate metal value
-        const metalValue = netWeight * ratePerGram;
-        
-        // Calculate making charge
-        let makingCharge = 0;
-        if (makingType === 'percentage') {
-            makingCharge = (metalValue * makingValue) / 100;
-        } else {
-            makingCharge = makingValue;
-        }
-        
-        // Calculate total before tax
-        const totalBeforeTax = metalValue + makingCharge;
-        
-        // Calculate GST (3% CGST + 3% SGST)
-        const cgst = (totalBeforeTax * 3) / 100;
-        const sgst = (totalBeforeTax * 3) / 100;
-        const total = totalBeforeTax + cgst + sgst;
-        
-        // Update row display
-        row.querySelector('.new-item-rate-per-gram').textContent = `₹${ratePerGram.toFixed(2)}`;
-        row.querySelector('.new-item-metal-value').textContent = `₹${metalValue.toFixed(2)}`;
-        row.querySelector('.new-item-making-charge').textContent = `₹${makingCharge.toFixed(2)}`;
-        row.querySelector('.new-item-total').textContent = `₹${total.toFixed(2)}`;
-        
-        // Store item data
-        const itemIndex = Array.from(row.parentNode.children).indexOf(row);
-        this.newItems[itemIndex] = {
-            description: row.querySelector('.new-item-description').value,
-            metalType,
-            purity,
-            grossWeight,
-            netWeight,
-            makingChargeType: makingType,
-            makingChargeValue: makingValue,
-            ratePerGram,
-            metalValue,
-            makingCharge,
-            totalBeforeTax,
-            cgst,
-            sgst,
-            total
-        };
-        
-        // Update totals
-        this.updateTotals();
-    }
-    
-    // Get rate per gram
-    getRatePerGram(metalType, purity) {
-        if (!this.currentRates) return 0;
-        
-        const rateMap = {
-            'gold': {
-                '24K': this.currentRates.gold24KPerGram,
-                '22K': this.currentRates.gold22KPerGram,
-                '18K': this.currentRates.gold18KPerGram
-            },
-            'silver': {
-                '999': this.currentRates.silver999PerGram,
-                '925': this.currentRates.silver925PerGram
-            }
-        };
-        
-        return rateMap[metalType]?.[purity] || 0;
-    }
-    
-    // Remove new item row
-    removeNewItemRow(button) {
-        const row = button.closest('.new-item-row');
-        const itemIndex = Array.from(row.parentNode.children).indexOf(row);
-        
-        // Remove from array
-        this.newItems.splice(itemIndex, 1);
-        
-        // Remove row from DOM
-        row.remove();
-        
-        // Update totals
-        this.updateTotals();
-    }
-    
-    // Update totals
-    updateTotals() {
-        // Calculate old items total value
-        this.totals.oldItemsValue = this.exchangeItems.reduce((total, item) => {
-            return total + (item?.exchangeValue || 0);
-        }, 0);
-        
-        // Calculate new items total value
-        let newItemsTotal = 0;
-        this.newItems.forEach(item => {
-            if (item) {
-                newItemsTotal += item.total || 0;
-            }
-        });
-        this.totals.newItemsValue = newItemsTotal;
-        
-        // Calculate net payable/refundable
-        const net = this.totals.newItemsValue - this.totals.oldItemsValue;
-        this.totals.netPayable = Math.abs(net);
-        this.totals.balanceType = net >= 0 ? 'payable' : 'refundable';
-        
-        // Update display
-        this.updateTotalsDisplay();
-    }
-    
-    // Update totals display
-    updateTotalsDisplay() {
-        document.getElementById('oldItemsValue').textContent = `₹${this.totals.oldItemsValue.toFixed(2)}`;
-        document.getElementById('newItemsValue').textContent = `₹${this.totals.newItemsValue.toFixed(2)}`;
-        document.getElementById('netPayable').textContent = `₹${this.totals.netPayable.toFixed(2)}`;
-        
-        // Update balance type display
-        const balanceTypeElement = document.getElementById('balanceType');
-        if (balanceTypeElement) {
-            if (this.totals.balanceType === 'payable') {
-                balanceTypeElement.textContent = 'Amount Payable by Customer';
-                balanceTypeElement.className = 'badge badge-danger';
-            } else {
-                balanceTypeElement.textContent = 'Amount Refundable to Customer';
-                balanceTypeElement.className = 'badge badge-success';
-            }
-        }
-    }
-    
-    // Validate form
-    validateForm() {
-        // Validate customer info
-        const customerName = document.getElementById('customerName').value.trim();
-        if (!customerName) {
-            alert('Please enter customer name');
-            return false;
-        }
-        
-        // Validate exchange items
-        if (this.exchangeItems.length === 0) {
-            alert('Please add at least one exchange item');
-            return false;
-        }
-        
-        // Validate new items
-        if (this.newItems.length === 0) {
-            alert('Please add at least one new item');
-            return false;
-        }
-        
-        return true;
-    }
-    
-    // Save exchange transaction
-    async saveExchange() {
-        if (!this.validateForm()) return;
-        
-        // Get customer info
-        this.customer = {
-            name: document.getElementById('customerName').value.trim(),
-            phone: document.getElementById('customerPhone').value.trim(),
-            address: document.getElementById('customerAddress').value.trim()
-        };
-        
-        // Get payment info
-        const paymentMethod = document.getElementById('paymentMethod').value;
-        const paymentStatus = document.getElementById('paymentStatus').value;
-        const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
-        const notes = document.getElementById('notes').value.trim();
-        
-        // Prepare bill data
-        const billData = {
-            billType: 'sale_exchange',
-            customerName: this.customer.name,
-            customerPhone: this.customer.phone,
-            customerAddress: this.customer.address,
-            items: this.newItems.filter(item => item),
-            exchangeItems: this.exchangeItems.filter(item => item),
-            paymentMethod: paymentMethod,
-            paymentStatus: paymentStatus,
-            paidAmount: paidAmount,
-            notes: notes
-        };
-        
-        // Show loading
-        const saveBtn = document.getElementById('saveExchange');
-        const originalText = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        saveBtn.disabled = true;
-        
-        try {
-            const response = await fetch(`${this.apiBase}/bills`, {
-                method: 'POST',
-                headers: authManager.getAuthHeaders(),
-                body: JSON.stringify(billData)
-            });
-            
+            const response = await fetch(`${this.apiBase}/rates`);
             const data = await response.json();
             
             if (data.success) {
-                alert('Exchange transaction saved successfully!');
-                this.resetForm();
-            } else {
-                alert('Error saving exchange: ' + (data.message || 'Unknown error'));
+                this.rates = data.rates.reduce((acc, rate) => {
+                    acc[rate.metalType] = rate;
+                    return acc;
+                }, {});
+                
+                this.populateMetalDropdowns();
             }
         } catch (error) {
-            console.error('Error saving exchange:', error);
-            alert('Error saving exchange. Please try again.');
-        } finally {
-            saveBtn.innerHTML = originalText;
-            saveBtn.disabled = false;
+            console.error('Error loading rates:', error);
+            showAlert('danger', 'Failed to load rates');
         }
     }
-    
-    // Reset form
-    resetForm() {
-        // Clear exchange items
-        this.exchangeItems = [];
-        const exchangeTbody = document.querySelector('#exchangeItemsTable tbody');
-        if (exchangeTbody) {
-            exchangeTbody.innerHTML = '';
-        }
-        
-        // Clear new items
-        this.newItems = [];
-        const newItemsTbody = document.querySelector('#newItemsTable tbody');
-        if (newItemsTbody) {
-            newItemsTbody.innerHTML = '';
-        }
-        
-        // Clear customer info
-        document.getElementById('customerName').value = '';
-        document.getElementById('customerPhone').value = '';
-        document.getElementById('customerAddress').value = '';
-        
-        // Reset payment
-        document.getElementById('paymentMethod').value = 'cash';
-        document.getElementById('paymentStatus').value = 'paid';
-        document.getElementById('paidAmount').value = '0';
-        
-        // Reset notes
-        document.getElementById('notes').value = '';
-        
-        // Reset totals
-        this.totals = {
-            oldItemsValue: 0,
-            newItemsValue: 0,
-            netPayable: 0,
-            balanceType: 'payable'
-        };
-        
-        this.updateTotalsDisplay();
-        
-        // Add first rows
-        this.addExchangeItemRow();
-        this.addNewItemRow();
+
+    populateMetalDropdowns() {
+        const selects = document.querySelectorAll('.exchange-metal-type');
+        selects.forEach(select => {
+            select.innerHTML = Object.keys(this.rates)
+                .map(metal => `<option value="${metal}">${metal}</option>`)
+                .join('');
+        });
     }
-    
-    // Print exchange bill
-    printExchange() {
-        // This would open a print preview with the exchange details
-        alert('Print functionality would open print preview');
+
+    setupEventListeners() {
+        // Old item form
+        document.getElementById('addOldItemBtn').addEventListener('click', () => {
+            this.addOldItemRow();
+        });
+
+        // New item form
+        document.getElementById('addNewItemBtn').addEventListener('click', () => {
+            this.addNewItemRow();
+        });
+
+        // Calculate exchange button
+        document.getElementById('calculateExchangeBtn').addEventListener('click', () => {
+            this.calculateExchange();
+        });
+
+        // Proceed to billing button
+        document.getElementById('proceedToBillingBtn').addEventListener('click', () => {
+            this.proceedToBilling();
+        });
+
+        // Reset form button
+        document.getElementById('resetExchangeBtn').addEventListener('click', () => {
+            this.resetExchange();
+        });
+
+        // Metal type change handlers
+        document.addEventListener('change', (e) => {
+            if (e.target.classList.contains('exchange-metal-type')) {
+                const rowId = e.target.closest('.item-row').id;
+                this.updatePurities(e.target.value, rowId);
+            }
+        });
+    }
+
+    setupExchangeCalculator() {
+        // Initialize exchange calculator UI
+        const calculator = document.getElementById('exchangeCalculator');
+        if (calculator) {
+            calculator.innerHTML = `
+                <div class="calculator-grid">
+                    <div class="calculator-section">
+                        <h4>Old Item Value</h4>
+                        <div class="calc-form">
+                            <div class="form-group">
+                                <label>Metal Type</label>
+                                <select class="form-control calc-metal" id="calcOldMetal">
+                                    ${Object.keys(this.rates).map(metal => 
+                                        `<option value="${metal}">${metal}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Purity</label>
+                                <select class="form-control calc-purity" id="calcOldPurity"></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Weight (g/carat)</label>
+                                <input type="number" class="form-control" id="calcOldWeight" step="0.001" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Wastage Deduction (%)</label>
+                                <input type="number" class="form-control" id="calcWastage" step="0.1" min="0" max="100" value="2">
+                            </div>
+                            <div class="form-group">
+                                <label>Melting Charges (₹)</label>
+                                <input type="number" class="form-control" id="calcMelting" step="0.01" min="0" value="0">
+                            </div>
+                            <button class="btn btn-primary" onclick="exchangeSystem.calculateItemValue()">
+                                Calculate Value
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="calculator-section">
+                        <h4>Calculation Result</h4>
+                        <div class="calc-result">
+                            <div class="result-row">
+                                <span>Metal Value:</span>
+                                <span id="calcMetalValue">₹0.00</span>
+                            </div>
+                            <div class="result-row">
+                                <span>After Wastage:</span>
+                                <span id="calcAfterWastage">₹0.00</span>
+                            </div>
+                            <div class="result-row">
+                                <span>After Melting:</span>
+                                <span id="calcAfterMelting">₹0.00</span>
+                            </div>
+                            <div class="result-row total">
+                                <span>Net Value:</span>
+                                <span id="calcNetValue">₹0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Initialize purity dropdown
+            const metalSelect = document.getElementById('calcOldMetal');
+            this.updateCalculatorPurities(metalSelect.value);
+        }
+    }
+
+    updatePurities(metalType, rowId) {
+        const rate = this.rates[metalType];
+        if (!rate) return;
+        
+        const puritySelect = document.querySelector(`#${rowId} .exchange-purity`);
+        puritySelect.innerHTML = rate.purityLevels
+            .map(purity => `<option value="${purity}">${purity}</option>`)
+            .join('');
+    }
+
+    updateCalculatorPurities(metalType) {
+        const rate = this.rates[metalType];
+        if (!rate) return;
+        
+        const puritySelect = document.getElementById('calcOldPurity');
+        puritySelect.innerHTML = rate.purityLevels
+            .map(purity => `<option value="${purity}">${purity}</option>`)
+            .join('');
+    }
+
+    addOldItemRow() {
+        const container = document.getElementById('oldItemsContainer');
+        const itemId = `old-item-${Date.now()}`;
+        
+        const row = document.createElement('div');
+        row.className = 'item-row old-item';
+        row.id = itemId;
+        
+        row.innerHTML = `
+            <input type="text" class="form-control item-description" placeholder="Item Description">
+            
+            <select class="form-control exchange-metal-type">
+                <option value="">Select Metal</option>
+                ${Object.keys(this.rates).map(metal => 
+                    `<option value="${metal}">${metal}</option>`
+                ).join('')}
+            </select>
+            
+            <select class="form-control exchange-purity">
+                <option value="">Select Purity</option>
+            </select>
+            
+            <input type="number" class="form-control weight" step="0.001" placeholder="Weight" min="0">
+            
+            <input type="number" class="form-control wastage" step="0.1" placeholder="Wastage %" min="0" max="100" value="2">
+            
+            <input type="number" class="form-control melting" step="0.01" placeholder="Melting Charges" min="0">
+            
+            <button class="btn btn-danger btn-sm" onclick="this.closest('.item-row').remove(); exchangeSystem.updateExchangeSummary()">
+                ×
+            </button>
+        `;
+        
+        container.appendChild(row);
+    }
+
+    addNewItemRow() {
+        const container = document.getElementById('newItemsContainer');
+        const itemId = `new-item-${Date.now()}`;
+        
+        const row = document.createElement('div');
+        row.className = 'item-row new-item';
+        row.id = itemId;
+        
+        row.innerHTML = `
+            <input type="text" class="form-control item-description" placeholder="New Item Description">
+            
+            <select class="form-control exchange-metal-type">
+                <option value="">Select Metal</option>
+                ${Object.keys(this.rates).map(metal => 
+                    `<option value="${metal}">${metal}</option>`
+                ).join('')}
+            </select>
+            
+            <select class="form-control exchange-purity">
+                <option value="">Select Purity</option>
+            </select>
+            
+            <input type="number" class="form-control weight" step="0.001" placeholder="Weight" min="0">
+            
+            <input type="number" class="form-control making-charges" step="0.01" placeholder="Making Charges" min="0">
+            
+            <select class="form-control making-charges-type">
+                <option value="percentage">%</option>
+                <option value="fixed">₹</option>
+            </select>
+            
+            <button class="btn btn-danger btn-sm" onclick="this.closest('.item-row').remove(); exchangeSystem.updateExchangeSummary()">
+                ×
+            </button>
+        `;
+        
+        container.appendChild(row);
+    }
+
+    async calculateItemValue() {
+        const metalType = document.getElementById('calcOldMetal').value;
+        const purity = document.getElementById('calcOldPurity').value;
+        const weight = parseFloat(document.getElementById('calcOldWeight').value) || 0;
+        const wastage = parseFloat(document.getElementById('calcWastage').value) || 0;
+        const melting = parseFloat(document.getElementById('calcMelting').value) || 0;
+
+        if (!metalType || !purity || weight <= 0) {
+            showAlert('warning', 'Please fill all required fields');
+            return;
+        }
+
+        const rate = this.rates[metalType];
+        if (!rate) {
+            showAlert('danger', 'Rate not found for selected metal');
+            return;
+        }
+
+        // Calculate metal value
+        let metalValue = 0;
+        if (rate.unit === 'kg') {
+            metalValue = (rate.rate / 1000) * weight;
+        } else if (rate.unit === 'carat') {
+            metalValue = rate.rate * weight;
+        }
+
+        // Apply purity adjustment for gold
+        if (metalType === 'Gold') {
+            if (purity === '22K') metalValue = metalValue * 0.9167;
+            else if (purity === '18K') metalValue = metalValue * 0.75;
+            else if (purity === '14K') metalValue = metalValue * 0.5833;
+        }
+
+        // Apply wastage deduction
+        const afterWastage = metalValue * ((100 - wastage) / 100);
+        
+        // Apply melting charges
+        const netValue = Math.max(0, afterWastage - melting);
+
+        // Update display
+        document.getElementById('calcMetalValue').textContent = `₹${metalValue.toFixed(2)}`;
+        document.getElementById('calcAfterWastage').textContent = `₹${afterWastage.toFixed(2)}`;
+        document.getElementById('calcAfterMelting').textContent = `₹${netValue.toFixed(2)}`;
+        document.getElementById('calcNetValue').textContent = `₹${netValue.toFixed(2)}`;
+
+        // Add to old items
+        this.addToOldItems(metalType, purity, weight, wastage, melting, netValue);
+    }
+
+    addToOldItems(metalType, purity, weight, wastage, melting, netValue) {
+        const container = document.getElementById('oldItemsContainer');
+        const itemId = `calc-item-${Date.now()}`;
+        
+        const row = document.createElement('div');
+        row.className = 'item-row old-item';
+        row.id = itemId;
+        
+        row.innerHTML = `
+            <input type="text" class="form-control item-description" value="Calculated ${metalType} Item" readonly>
+            
+            <select class="form-control exchange-metal-type" disabled>
+                <option value="${metalType}" selected>${metalType}</option>
+            </select>
+            
+            <select class="form-control exchange-purity" disabled>
+                <option value="${purity}" selected>${purity}</option>
+            </select>
+            
+            <input type="number" class="form-control weight" value="${weight}" readonly>
+            
+            <input type="number" class="form-control wastage" value="${wastage}" readonly>
+            
+            <input type="number" class="form-control melting" value="${melting}" readonly>
+            
+            <div class="item-value">₹${netValue.toFixed(2)}</div>
+            
+            <button class="btn btn-danger btn-sm" onclick="this.closest('.item-row').remove(); exchangeSystem.updateExchangeSummary()">
+                ×
+            </button>
+        `;
+        
+        container.appendChild(row);
+        this.updateExchangeSummary();
+    }
+
+    updateExchangeSummary() {
+        // Calculate old items total
+        const oldItems = document.querySelectorAll('.old-item');
+        let oldItemsTotal = 0;
+        
+        oldItems.forEach(item => {
+            const valueElement = item.querySelector('.item-value');
+            if (valueElement) {
+                const value = parseFloat(valueElement.textContent.replace('₹', '')) || 0;
+                oldItemsTotal += value;
+            } else {
+                // For manually entered items, calculate value
+                const metalType = item.querySelector('.exchange-metal-type').value;
+                const purity = item.querySelector('.exchange-purity').value;
+                const weight = parseFloat(item.querySelector('.weight').value) || 0;
+                const wastage = parseFloat(item.querySelector('.wastage').value) || 0;
+                const melting = parseFloat(item.querySelector('.melting').value) || 0;
+                
+                if (metalType && purity && weight > 0) {
+                    const rate = this.rates[metalType];
+                    if (rate) {
+                        let value = 0;
+                        if (rate.unit === 'kg') {
+                            value = (rate.rate / 1000) * weight;
+                        } else if (rate.unit === 'carat') {
+                            value = rate.rate * weight;
+                        }
+                        
+                        // Apply purity adjustment
+                        if (metalType === 'Gold') {
+                            if (purity === '22K') value = value * 0.9167;
+                            else if (purity === '18K') value = value * 0.75;
+                            else if (purity === '14K') value = value * 0.5833;
+                        }
+                        
+                        // Apply wastage and melting
+                        value = value * ((100 - wastage) / 100);
+                        value = Math.max(0, value - melting);
+                        
+                        oldItemsTotal += value;
+                    }
+                }
+            }
+        });
+        
+        // Calculate new items total
+        const newItems = document.querySelectorAll('.new-item');
+        let newItemsTotal = 0;
+        
+        newItems.forEach(item => {
+            const metalType = item.querySelector('.exchange-metal-type').value;
+            const weight = parseFloat(item.querySelector('.weight').value) || 0;
+            const makingCharges = parseFloat(item.querySelector('.making-charges').value) || 0;
+            const makingType = item.querySelector('.making-charges-type').value;
+            
+            if (metalType && weight > 0) {
+                const rate = this.rates[metalType];
+                if (rate) {
+                    let itemValue = 0;
+                    if (rate.unit === 'kg') {
+                        itemValue = (rate.rate / 1000) * weight;
+                    } else if (rate.unit === 'carat') {
+                        itemValue = rate.rate * weight;
+                    }
+                    
+                    // Apply making charges
+                    let makingAmount = 0;
+                    if (makingType === 'percentage') {
+                        makingAmount = (itemValue * makingCharges) / 100;
+                    } else {
+                        makingAmount = makingCharges;
+                    }
+                    
+                    newItemsTotal += itemValue + makingAmount;
+                }
+            }
+        });
+        
+        // Calculate balance
+        const balance = oldItemsTotal - newItemsTotal;
+        
+        // Update summary display
+        document.getElementById('oldItemsTotal').textContent = `₹${oldItemsTotal.toFixed(2)}`;
+        document.getElementById('newItemsTotal').textContent = `₹${newItemsTotal.toFixed(2)}`;
+        
+        if (balance >= 0) {
+            document.getElementById('balanceRefundable').textContent = `₹${balance.toFixed(2)}`;
+            document.getElementById('balancePayable').textContent = '₹0.00';
+        } else {
+            document.getElementById('balancePayable').textContent = `₹${Math.abs(balance).toFixed(2)}`;
+            document.getElementById('balanceRefundable').textContent = '₹0.00';
+        }
+        
+        // Enable/disable proceed button
+        const proceedBtn = document.getElementById('proceedToBillingBtn');
+        proceedBtn.disabled = oldItemsTotal <= 0 || newItemsTotal <= 0;
+    }
+
+    calculateExchange() {
+        this.updateExchangeSummary();
+        showAlert('success', 'Exchange calculated successfully');
+    }
+
+    proceedToBilling() {
+        // Collect old items data
+        const oldItems = [];
+        document.querySelectorAll('.old-item').forEach(item => {
+            const description = item.querySelector('.item-description').value;
+            const metalType = item.querySelector('.exchange-metal-type').value;
+            const purity = item.querySelector('.exchange-purity').value;
+            const weight = parseFloat(item.querySelector('.weight').value) || 0;
+            const wastage = parseFloat(item.querySelector('.wastage').value) || 0;
+            const melting = parseFloat(item.querySelector('.melting').value) || 0;
+            
+            if (metalType && purity && weight > 0) {
+                oldItems.push({
+                    description: description || 'Old Item',
+                    metalType,
+                    purity,
+                    weight,
+                    wastageDeduction: wastage,
+                    meltingCharges: melting
+                });
+            }
+        });
+        
+        // Collect new items data
+        const newItems = [];
+        document.querySelectorAll('.new-item').forEach(item => {
+            const description = item.querySelector('.item-description').value;
+            const metalType = item.querySelector('.exchange-metal-type').value;
+            const purity = item.querySelector('.exchange-purity').value;
+            const weight = parseFloat(item.querySelector('.weight').value) || 0;
+            const makingCharges = parseFloat(item.querySelector('.making-charges').value) || 0;
+            const makingType = item.querySelector('.making-charges-type').value;
+            
+            if (metalType && purity && weight > 0) {
+                newItems.push({
+                    description: description || 'New Item',
+                    metalType,
+                    purity,
+                    weight,
+                    makingCharges,
+                    makingChargesType: makingType
+                });
+            }
+        });
+        
+        if (oldItems.length === 0 || newItems.length === 0) {
+            showAlert('warning', 'Please add at least one old item and one new item');
+            return;
+        }
+        
+        // Store data for billing page
+        localStorage.setItem('exchangeData', JSON.stringify({
+            oldItems,
+            newItems,
+            timestamp: Date.now()
+        }));
+        
+        // Redirect to billing page
+        window.location.href = 'billing.html?exchange=true';
+    }
+
+    resetExchange() {
+        if (confirm('Are you sure you want to reset the exchange form?')) {
+            document.getElementById('oldItemsContainer').innerHTML = '';
+            document.getElementById('newItemsContainer').innerHTML = '';
+            
+            // Reset calculator
+            document.getElementById('calcOldWeight').value = '';
+            document.getElementById('calcMetalValue').textContent = '₹0.00';
+            document.getElementById('calcAfterWastage').textContent = '₹0.00';
+            document.getElementById('calcAfterMelting').textContent = '₹0.00';
+            document.getElementById('calcNetValue').textContent = '₹0.00';
+            
+            // Reset summary
+            document.getElementById('oldItemsTotal').textContent = '₹0.00';
+            document.getElementById('newItemsTotal').textContent = '₹0.00';
+            document.getElementById('balanceRefundable').textContent = '₹0.00';
+            document.getElementById('balancePayable').textContent = '₹0.00';
+            
+            // Disable proceed button
+            document.getElementById('proceedToBillingBtn').disabled = true;
+            
+            showAlert('info', 'Exchange form reset successfully');
+        }
     }
 }
 
-// Initialize exchange system when page loads
-document.addEventListener('DOMContentLoaded', async () => {
-    window.exchangeSystem = new ExchangeSystem();
-    await exchangeSystem.initialize();
+class ExchangeCalculator {
+    constructor() {
+        this.apiBase = 'http://localhost:5000/api';
+    }
+    
+    async calculateNetValue(itemData) {
+        try {
+            const response = await fetch(`${this.apiBase}/rates/calculate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.auth.getToken()}`
+                },
+                body: JSON.stringify(itemData)
+            });
+            
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Calculate error:', error);
+            return null;
+        }
+    }
+}
+
+// Initialize exchange system
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.auth.isAuthenticated() && window.auth.isStaff()) {
+        window.exchangeSystem = new ExchangeSystem();
+    } else {
+        window.location.href = 'login.html';
+    }
 });
