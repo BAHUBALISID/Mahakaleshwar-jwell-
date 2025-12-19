@@ -1,7 +1,7 @@
 {
-  "name": "jewellery-billing-system",
+  "name": "jewellery-billing-backend",
   "version": "1.0.0",
-  "description": "Jewellery Billing & Exchange System for Shri Mahakaleshwar Jewellers",
+  "description": "Shri Mahakaleshwar Jewellers Billing System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,13 +10,18 @@
   "dependencies": {
     "express": "^4.18.2",
     "mongoose": "^7.5.0",
-    "dotenv": "^16.3.1",
-    "cors": "^2.8.5",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
     "express-validator": "^7.0.1",
+    "multer": "^1.4.5-lts.1",
+    "qr-image": "^3.2.0",
+    "openai": "^4.11.0",
     "moment": "^2.29.4",
-    "number-to-words": "^1.2.4"
+    "exceljs": "^4.4.0",
+    "helmet": "^7.0.0",
+    "rate-limiter-flexible": "^2.4.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
