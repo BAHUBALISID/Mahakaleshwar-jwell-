@@ -3,252 +3,879 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Shri Mahakaleshwar Jewellers</title>
+    <title>Admin Dashboard - Shri Mahakaleshwar Jewellers</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <div class="shop-info">
-                <h1 class="shop-name">Shri Mahakaleshwar Jewellers</h1>
-                <p class="shop-address">Anisabad, Patna, Bihar | GSTIN: 10AABCU9603R1Z1</p>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <i class="fas fa-gem"></i>
+            <div>
+                <h1>Shri Mahakaleshwar Jewellers</h1>
+                <small>Anisabad, Patna, Bihar</small>
             </div>
-            <div class="user-info">
-                <span id="userName">Admin</span>
-                <button onclick="logout()" class="btn-logout">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+        
+        <div class="navbar-nav">
+            <a href="billing.html" class="nav-link" data-role="staff">
+                <i class="fas fa-receipt"></i> Billing
+            </a>
+            <a href="exchange.html" class="nav-link" data-role="staff">
+                <i class="fas fa-exchange-alt"></i> Exchange
+            </a>
+            <a href="reports.html" class="nav-link" data-role="admin">
+                <i class="fas fa-chart-line"></i> Reports
+            </a>
+            <a href="admin.html" class="nav-link active" data-role="admin">
+                <i class="fas fa-cog"></i> Admin
+            </a>
+            <div class="user-info"></div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <div class="page-header">
+            <h2><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
+            <p>Business intelligence and system management</p>
+        </div>
+
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
+
+        <!-- Time Filters -->
+        <div class="filter-section">
+            <div class="time-filters">
+                <button class="btn btn-outline time-filter-btn active" data-filter="current_month">
+                    Current Month
+                </button>
+                <button class="btn btn-outline time-filter-btn" data-filter="previous_month">
+                    Previous Month
+                </button>
+                <button class="btn btn-outline time-filter-btn" data-filter="last_3_months">
+                    Last 3 Months
+                </button>
+                <button class="btn btn-outline time-filter-btn" data-filter="last_6_months">
+                    Last 6 Months
+                </button>
+                <button class="btn btn-outline time-filter-btn" data-filter="current_year">
+                    Current Year
+                </button>
+                <button class="btn btn-outline" id="refreshDashboardBtn">
+                    <i class="fas fa-sync-alt"></i> Refresh
                 </button>
             </div>
-        </header>
-
-        <nav class="sidebar">
-            <ul class="nav-menu">
-                <li class="nav-item">
-                    <a href="index.html" class="nav-link">
-                        <i class="fas fa-tachometer-alt"></i> Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="billing.html" class="nav-link">
-                        <i class="fas fa-receipt"></i> New Bill
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="exchange.html" class="nav-link">
-                        <i class="fas fa-exchange-alt"></i> Exchange
-                    </a>
-                </li>
-                <li class="nav-item active">
-                    <a href="admin.html" class="nav-link">
-                        <i class="fas fa-cog"></i> Rates & Settings
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="reports.html" class="nav-link">
-                        <i class="fas fa-chart-bar"></i> Reports
-                    </a>
-                </li>
-            </ul>
-        </nav>
-
-        <main class="main-content">
-            <h2><i class="fas fa-cog"></i> Admin Settings</h2>
             
-            <!-- Current Rates Display -->
-            <div class="card">
-                <h3><i class="fas fa-chart-line"></i> Current Rates</h3>
-                <div class="rates-display">
-                    <div class="rate-display-item">
-                        <span class="rate-label">Gold 24K:</span>
-                        <span class="rate-value" id="gold24KDisplay">₹0/kg (₹0/g)</span>
-                    </div>
-                    <div class="rate-display-item">
-                        <span class="rate-label">Gold 22K:</span>
-                        <span class="rate-value" id="gold22KDisplay">₹0/kg (₹0/g)</span>
-                    </div>
-                    <div class="rate-display-item">
-                        <span class="rate-label">Gold 18K:</span>
-                        <span class="rate-value" id="gold18KDisplay">₹0/kg (₹0/g)</span>
-                    </div>
-                    <div class="rate-display-item">
-                        <span class="rate-label">Silver 999:</span>
-                        <span class="rate-value" id="silver999Display">₹0/kg (₹0/g)</span>
-                    </div>
-                    <div class="rate-display-item">
-                        <span class="rate-label">Silver 925:</span>
-                        <span class="rate-value" id="silver925Display">₹0/kg (₹0/g)</span>
-                    </div>
+            <div class="date-range">
+                <div class="form-group">
+                    <label>Custom Date Range:</label>
+                    <input type="date" id="startDate" class="form-control">
+                    <span>to</span>
+                    <input type="date" id="endDate" class="form-control">
+                    <button class="btn btn-primary" id="applyDateFilter">
+                        <i class="fas fa-filter"></i> Apply
+                    </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Update Rates Form -->
-            <div class="card">
-                <h3><i class="fas fa-edit"></i> Update Rates (Per Kg)</h3>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="gold24K" class="form-label">Gold 24K (₹/kg)</label>
-                        <input type="number" id="gold24K" class="form-control" placeholder="Enter rate per kg" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="gold22K" class="form-label">Gold 22K (₹/kg)</label>
-                        <input type="number" id="gold22K" class="form-control" placeholder="Enter rate per kg" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="gold18K" class="form-label">Gold 18K (₹/kg)</label>
-                        <input type="number" id="gold18K" class="form-control" placeholder="Enter rate per kg" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="silver999" class="form-label">Silver 999 (₹/kg)</label>
-                        <input type="number" id="silver999" class="form-control" placeholder="Enter rate per kg" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="silver925" class="form-label">Silver 925 (₹/kg)</label>
-                        <input type="number" id="silver925" class="form-control" placeholder="Enter rate per kg">
-                    </div>
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-rupee-sign"></i>
                 </div>
-                <button type="button" id="updateRates" class="btn-primary">
-                    <i class="fas fa-save"></i> Update Rates
+                <div class="stat-content">
+                    <div class="stat-label">Total Sales</div>
+                    <div class="stat-value" id="totalSales">₹0</div>
+                    <div class="stat-change" id="salesGrowth">+0%</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-file-invoice"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Total Bills</div>
+                    <div class="stat-value" id="totalBills">0</div>
+                    <div class="stat-sub">This Period</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Avg. Bill Value</div>
+                    <div class="stat-value" id="averageBill">₹0</div>
+                    <div class="stat-sub">Per Transaction</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-exchange-alt"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Exchange Bills</div>
+                    <div class="stat-value" id="exchangeBills">0</div>
+                    <div class="stat-sub">With Exchange</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h4><i class="fas fa-chart-line"></i> Sales Trend</h4>
+                    <select class="form-control" style="width: auto;">
+                        <option>Last 7 Days</option>
+                        <option>Last 30 Days</option>
+                        <option>Last 90 Days</option>
+                    </select>
+                </div>
+                <canvas id="salesTrendChart" height="250"></canvas>
+            </div>
+            
+            <div class="charts-row">
+                <div class="chart-container">
+                    <h4><i class="fas fa-chart-pie"></i> Metal Distribution</h4>
+                    <canvas id="metalDistributionChart" height="200"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <h4><i class="fas fa-credit-card"></i> Payment Mode</h4>
+                    <canvas id="paymentModeChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Insights -->
+        <div class="ai-insights">
+            <div class="section-title">
+                <h3><i class="fas fa-brain"></i> AI Business Insights</h3>
+                <span class="insight-time" id="insightTime">Generated just now</span>
+            </div>
+            <div id="aiInsights">
+                <div class="loading">Loading AI insights...</div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions-section">
+            <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+            <div class="action-grid">
+                <button class="action-card" id="manageRatesBtn">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Manage Rates</span>
+                </button>
+                
+                <button class="action-card" id="manageUsersBtn">
+                    <i class="fas fa-users"></i>
+                    <span>Manage Users</span>
+                </button>
+                
+                <button class="action-card" onclick="window.location.href='reports.html'">
+                    <i class="fas fa-file-export"></i>
+                    <span>Export Reports</span>
+                </button>
+                
+                <button class="action-card" id="exportSalesBtn">
+                    <i class="fas fa-file-excel"></i>
+                    <span>Export Sales</span>
+                </button>
+                
+                <button class="action-card" id="exportCustomersBtn">
+                    <i class="fas fa-user-friends"></i>
+                    <span>Export Customers</span>
+                </button>
+                
+                <button class="action-card" onclick="window.open('billing.html', '_blank')">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>New Bill</span>
                 </button>
             </div>
+        </div>
 
-            <!-- Rate History -->
-            <div class="card">
-                <h3><i class="fas fa-history"></i> Rate History</h3>
+        <!-- Recent Activity -->
+        <div class="recent-activity">
+            <div class="section-title">
+                <h3><i class="fas fa-history"></i> Recent Bills</h3>
+                <a href="reports.html" class="btn btn-outline btn-sm">
+                    View All <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Bill No</th>
+                            <th>Customer</th>
+                            <th>Amount</th>
+                            <th>Date</th>
+                            <th>Payment</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentBills">
+                        <tr>
+                            <td colspan="6" class="text-center">Loading recent bills...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Customer Insights -->
+        <div class="customer-insights">
+            <div class="section-title">
+                <h3><i class="fas fa-user-tie"></i> Customer Insights</h3>
+            </div>
+            <div id="customerInsights">
+                <div class="loading">Loading customer data...</div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="system-status">
+            <div class="section-title">
+                <h3><i class="fas fa-server"></i> System Status</h3>
+            </div>
+            <div class="status-grid">
+                <div class="status-item online">
+                    <i class="fas fa-database"></i>
+                    <div>
+                        <div class="status-label">Database</div>
+                        <div class="status-value">Connected</div>
+                    </div>
+                </div>
+                <div class="status-item online">
+                    <i class="fas fa-robot"></i>
+                    <div>
+                        <div class="status-label">AI Service</div>
+                        <div class="status-value">Active</div>
+                    </div>
+                </div>
+                <div class="status-item online">
+                    <i class="fas fa-print"></i>
+                    <div>
+                        <div class="status-label">Print Service</div>
+                        <div class="status-value">Ready</div>
+                    </div>
+                </div>
+                <div class="status-item online">
+                    <i class="fas fa-qrcode"></i>
+                    <div>
+                        <div class="status-label">QR Generator</div>
+                        <div class="status-value">Active</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    
+    <!-- Rates Management Modal -->
+    <div class="modal" id="ratesModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-line"></i> Manage Rates</h3>
+                <button class="close">&times;</button>
+            </div>
+            <div class="modal-body">
                 <div class="table-container">
-                    <table id="rateHistoryTable" class="data-table">
+                    <table class="table">
                         <thead>
                             <tr>
-                                <th>Date & Time</th>
-                                <th>Gold 24K</th>
-                                <th>Gold 22K</th>
-                                <th>Gold 18K</th>
-                                <th>Silver 999</th>
-                                <th>Silver 925</th>
-                                <th>Last Updated</th>
+                                <th>Metal Type</th>
+                                <th>Rate (per unit)</th>
+                                <th>Unit</th>
+                                <th>Per Gram/Carat</th>
+                                <th>Purity Levels</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <!-- Rate history will be loaded here -->
+                        <tbody id="ratesTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center">Loading rates...</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
-                <div id="pagination" class="pagination"></div>
-            </div>
-
-            <!-- Shop Details -->
-            <div class="card">
-                <h3><i class="fas fa-store"></i> Shop Details</h3>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="shopName" class="form-label">Shop Name</label>
-                        <input type="text" id="shopName" class="form-control" placeholder="Enter shop name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="address" class="form-label">Address</label>
-                        <textarea id="address" class="form-control" rows="2" placeholder="Enter shop address" required></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="gstin" class="form-label">GSTIN</label>
-                        <input type="text" id="gstin" class="form-control" placeholder="Enter GSTIN" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="phone" class="form-label">Phone</label>
-                        <input type="tel" id="phone" class="form-control" placeholder="Enter phone number">
-                    </div>
-                    <div class="form-group">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" id="email" class="form-control" placeholder="Enter email address">
-                    </div>
-                </div>
-                <button type="button" id="updateShopDetails" class="btn-primary">
-                    <i class="fas fa-save"></i> Update Shop Details
-                </button>
-            </div>
-
-            <!-- Reports Generator -->
-            <div class="card">
-                <h3><i class="fas fa-chart-bar"></i> Reports Generator</h3>
                 
-                <div class="form-group">
-                    <label for="reportType" class="form-label">Report Type</label>
-                    <select id="reportType" class="form-control">
-                        <option value="daily">Daily Report</option>
-                        <option value="monthly">Monthly Report</option>
-                        <option value="custom">Custom Date Range</option>
-                    </select>
+                <div class="rate-info">
+                    <p><i class="fas fa-info-circle"></i> Rates are entered per KG for Gold/Silver/Platinum and per Carat for Diamond</p>
                 </div>
-
-                <!-- Daily Report Config -->
-                <div id="dailyReportConfig" class="report-config">
-                    <div class="form-group">
-                        <label for="reportDate" class="form-label">Select Date</label>
-                        <input type="date" id="reportDate" class="form-control">
-                    </div>
-                </div>
-
-                <!-- Monthly Report Config -->
-                <div id="monthlyReportConfig" class="report-config" style="display: none;">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="reportYear" class="form-label">Year</label>
-                            <input type="number" id="reportYear" class="form-control" min="2000" max="2100">
-                        </div>
-                        <div class="form-group">
-                            <label for="reportMonth" class="form-label">Month</label>
-                            <select id="reportMonth" class="form-control">
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Custom Report Config -->
-                <div id="customReportConfig" class="report-config" style="display: none;">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="startDate" class="form-label">Start Date</label>
-                            <input type="date" id="startDate" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="endDate" class="form-label">End Date</label>
-                            <input type="date" id="endDate" class="form-control">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="action-buttons">
-                    <button type="button" id="generateReport" class="btn-primary">
-                        <i class="fas fa-chart-bar"></i> Generate Report
-                    </button>
-                    <button type="button" id="exportReport" class="btn-secondary">
-                        <i class="fas fa-download"></i> Export Report
-                    </button>
-                </div>
-
-                <!-- Report Result -->
-                <div id="reportResult" class="report-result"></div>
             </div>
-        </main>
-
-        <footer class="footer">
-            <p>© 2024 Shri Mahakaleshwar Jewellers. All rights reserved.</p>
-            <p>Jewellery Billing System v1.0</p>
-        </footer>
+        </div>
     </div>
 
+    <!-- Users Management Modal -->
+    <div class="modal" id="usersModal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-users"></i> Manage Users</h3>
+                <button class="close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Mobile</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center">Loading users...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="showAddUserModal()">
+                        <i class="fas fa-plus"></i> Add New User
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal" id="addUserModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Add New User</h3>
+                <button class="close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" class="form-control" id="newUserName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" class="form-control" id="newUserEmail" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="tel" class="form-control" id="newUserMobile" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" class="form-control" id="newUserPassword" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select class="form-control" id="newUserRole">
+                            <option value="staff">Staff</option>
+                            <option value="admin">Admin</option>
+                            <option value="viewer">Viewer</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="addNewUser()">
+                    <i class="fas fa-save"></i> Save User
+                </button>
+                <button class="btn btn-outline close">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bill Details Modal -->
+    <div class="modal" id="billDetailsModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>Bill Details</h3>
+                <button class="close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="bill-details">
+                    <div class="detail-row">
+                        <span>Bill Number:</span>
+                        <span id="billDetailNumber"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Bill Date:</span>
+                        <span id="billDetailDate"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Customer Name:</span>
+                        <span id="billDetailCustomer"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Mobile:</span>
+                        <span id="billDetailMobile"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Address:</span>
+                        <span id="billDetailAddress"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Total Amount:</span>
+                        <span id="billDetailTotal"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Payment:</span>
+                        <span id="billDetailPayment"></span>
+                    </div>
+                    
+                    <h4>Items</h4>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Metal & Purity</th>
+                                    <th>Weight</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="billDetailItems">
+                                <!-- Items will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="billDetailExchange" style="display: none;">
+                        <h4>Exchange Details</h4>
+                        <div class="detail-row">
+                            <span>Old Items Value:</span>
+                            <span id="billDetailOldItems"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Balance:</span>
+                            <span id="billDetailBalance"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline close">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Styles for this page -->
+    <style>
+        .filter-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .time-filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .time-filters .btn.active {
+            background: #D4AF37;
+            color: white;
+            border-color: #D4AF37;
+        }
+        
+        .date-range {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .date-range .form-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            border-top: 4px solid #D4AF37;
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            background: #f8f9fa;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: #D4AF37;
+        }
+        
+        .stat-content {
+            flex: 1;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .stat-change {
+            font-size: 14px;
+            color: #28a745;
+        }
+        
+        .stat-sub {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .charts-section {
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .charts-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .ai-insights {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .ai-insights .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .insight-time {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .insight-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .insight-section h4 {
+            margin-bottom: 10px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .insight-section p, .insight-section ul {
+            margin: 0;
+            opacity: 0.9;
+        }
+        
+        .insight-section ul {
+            padding-left: 20px;
+        }
+        
+        .insight-section li {
+            margin-bottom: 5px;
+        }
+        
+        .quick-actions-section {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .action-card {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .action-card:hover {
+            border-color: #D4AF37;
+            background: #fff8dc;
+            transform: translateY(-5px);
+        }
+        
+        .action-card i {
+            font-size: 32px;
+            color: #D4AF37;
+        }
+        
+        .action-card span {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .recent-activity, .customer-insights, .system-status {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .customer-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .status-item.online {
+            border-left: 4px solid #28a745;
+        }
+        
+        .status-item.offline {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .status-item i {
+            font-size: 24px;
+            color: #666;
+        }
+        
+        .status-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .status-value {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-row span:first-child {
+            font-weight: 500;
+            color: #666;
+        }
+        
+        .detail-row span:last-child {
+            color: #333;
+        }
+        
+        @media (max-width: 768px) {
+            .charts-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .date-range .form-group {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .customer-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+
+    <!-- Scripts -->
     <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
     <script src="js/admin.js"></script>
+    
+    <script>
+        // Modal close handlers
+        document.querySelectorAll('.modal .close').forEach(closeBtn => {
+            closeBtn.addEventListener('click', function() {
+                this.closest('.modal').classList.remove('show');
+            });
+        });
+        
+        // Close modal on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
+        
+        // Show add user modal
+        function showAddUserModal() {
+            document.getElementById('usersModal').classList.remove('show');
+            document.getElementById('addUserModal').classList.add('show');
+        }
+        
+        // Add new user
+        async function addNewUser() {
+            const userData = {
+                name: document.getElementById('newUserName').value,
+                email: document.getElementById('newUserEmail').value,
+                password: document.getElementById('newUserPassword').value,
+                mobile: document.getElementById('newUserMobile').value,
+                role: document.getElementById('newUserRole').value
+            };
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.auth.getToken()}`
+                    },
+                    body: JSON.stringify(userData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('success', 'User added successfully');
+                    document.getElementById('addUserModal').classList.remove('show');
+                    document.getElementById('addUserForm').reset();
+                    
+                    // Refresh users list
+                    if (window.adminDashboard) {
+                        window.adminDashboard.showUsersModal();
+                    }
+                } else {
+                    showAlert('danger', data.message || 'Failed to add user');
+                }
+            } catch (error) {
+                console.error('Add user error:', error);
+                showAlert('danger', 'Failed to add user');
+            }
+        }
+        
+        // Show alert function
+        function showAlert(type, message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            
+            const container = document.getElementById('alertContainer');
+            container.appendChild(alertDiv);
+            
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+    </script>
 </body>
 </html>
