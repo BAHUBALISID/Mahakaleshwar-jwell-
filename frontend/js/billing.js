@@ -20,6 +20,14 @@ class BillingSystem {
             gstOnMaking: 5
         };
         this.rates = {};
+        this.metalPurities = {
+            'Gold': ['22K', '18K', '14K', '24K'],
+            'Silver': ['925', '999', '830'],
+            'Diamond': ['SI1', 'VS1', 'VVS1', 'IF', 'FL'],
+            'Platinum': ['950', '900', '850'],
+            'Antique / Polki': ['Traditional', 'Polki', 'Kundan'],
+            'Others': ['Standard']
+        };
         this.init();
     }
 
@@ -31,27 +39,15 @@ class BillingSystem {
 
     showAlert(type, message) {
         const alertDiv = document.createElement('div');
-        alertDiv.className = `alert`;
-        alertDiv.style.cssText = `
-            background: ${type === 'success' ? '#d4edda' : type === 'danger' ? '#f8d7da' : type === 'warning' ? '#fff3cd' : '#d1ecf1'};
-            color: ${type === 'success' ? '#155724' : type === 'danger' ? '#721c24' : type === 'warning' ? '#856404' : '#0c5460'};
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            border: 1px solid ${type === 'success' ? '#c3e6cb' : type === 'danger' ? '#f5c6cb' : type === 'warning' ? '#ffeaa7' : '#bee5eb'};
-            position: relative;
-        `;
-        
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
         alertDiv.innerHTML = `
             ${message}
-            <button style="background: none; border: none; font-size: 20px; position: absolute; right: 10px; top: 10px; cursor: pointer;" 
-                    onclick="this.parentElement.remove()">&times;</button>
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
         `;
         
         const container = document.getElementById('alertContainer');
         container.appendChild(alertDiv);
         
-        // Auto remove after 5 seconds
         setTimeout(() => {
             if (alertDiv.parentElement) {
                 alertDiv.remove();
@@ -64,29 +60,30 @@ class BillingSystem {
             const response = await fetch(`${this.apiBase}/rates`);
             const data = await response.json();
             
-            if (data.success) {
-                this.rates = data.rates.reduce((acc, rate) => {
-                    acc[rate.metalType] = rate;
-                    return acc;
-                }, {});
+            if (data.success && data.rates) {
+                this.rates = {};
+                data.rates.forEach(rate => {
+                    this.rates[rate.metalType] = rate;
+                });
+                console.log('Rates loaded successfully:', Object.keys(this.rates));
             } else {
                 this.showAlert('warning', 'Using default rates');
-                // Default rates if API fails
+                // Set default rates
                 this.rates = {
-                    'Gold': { rate: 600000, unit: 'kg', gstRate: 3, gstOnMaking: 5, purityLevels: ['22K', '18K', '14K'] },
-                    'Silver': { rate: 80000, unit: 'kg', gstRate: 3, gstOnMaking: 5, purityLevels: ['925', '999'] },
-                    'Diamond': { rate: 50000, unit: 'carat', gstRate: 3, gstOnMaking: 5, purityLevels: ['SI1', 'VS1', 'VVS1'] },
-                    'Platinum': { rate: 400000, unit: 'kg', gstRate: 3, gstOnMaking: 5, purityLevels: ['950', '900'] },
-                    'Antique / Polki': { rate: 300000, unit: 'kg', gstRate: 3, gstOnMaking: 5, purityLevels: ['Traditional'] },
-                    'Others': { rate: 100000, unit: 'kg', gstRate: 3, gstOnMaking: 5, purityLevels: ['Standard'] }
+                    'Gold': { rate: 600000, unit: 'kg', gstRate: 3, gstOnMaking: 5 },
+                    'Silver': { rate: 80000, unit: 'kg', gstRate: 3, gstOnMaking: 5 },
+                    'Diamond': { rate: 50000, unit: 'carat', gstRate: 3, gstOnMaking: 5 },
+                    'Platinum': { rate: 400000, unit: 'kg', gstRate: 3, gstOnMaking: 5 },
+                    'Antique / Polki': { rate: 300000, unit: 'kg', gstRate: 3, gstOnMaking: 5 },
+                    'Others': { rate: 100000, unit: 'kg', gstRate: 3, gstOnMaking: 5 }
                 };
             }
         } catch (error) {
             console.error('Error loading rates:', error);
             this.showAlert('danger', 'Failed to load rates. Using default rates.');
             this.rates = {
-                'Gold': { rate: 600000, unit: 'kg', gstRate: 3, gstOnMaking: 5, purityLevels: ['22K', '18K', '14K'] },
-                'Silver': { rate: 80000, unit: 'kg', gstRate: 3, gstOnMaking: 5, purityLevels: ['925', '999'] }
+                'Gold': { rate: 600000, unit: 'kg', gstRate: 3, gstOnMaking: 5 },
+                'Silver': { rate: 80000, unit: 'kg', gstRate: 3, gstOnMaking: 5 }
             };
         }
     }
@@ -129,7 +126,7 @@ class BillingSystem {
             this.printBill();
         });
 
-        // Make sure all inputs are visible on mobile
+        // Fix mobile inputs
         this.fixMobileInputs();
     }
 
@@ -140,20 +137,13 @@ class BillingSystem {
             @media (max-width: 768px) {
                 select, input, textarea {
                     font-size: 16px !important;
-                    min-height: 48px !important;
+                    min-height: 44px !important;
                 }
                 
                 .item-row select,
                 .item-row input {
                     width: 100% !important;
                     margin: 5px 0 !important;
-                }
-                
-                .form-control {
-                    width: 100% !important;
-                    display: block !important;
-                    opacity: 1 !important;
-                    visibility: visible !important;
                 }
             }
             
@@ -166,10 +156,13 @@ class BillingSystem {
                 }
             }
             
-            /* Touch improvements */
-            button, input[type="button"], input[type="submit"], input[type="reset"] {
-                min-height: 44px;
-                min-width: 44px;
+            /* Make sure dropdowns are visible */
+            select {
+                background-color: white !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                position: relative !important;
+                z-index: 1 !important;
             }
         `;
         document.head.appendChild(style);
@@ -189,6 +182,11 @@ class BillingSystem {
         const container = document.getElementById(containerId);
         const itemId = Date.now() + Math.random();
         
+        // Clear the placeholder if it exists
+        if (container.querySelector('.text-center.text-muted')) {
+            container.innerHTML = '';
+        }
+        
         const itemRow = document.createElement('div');
         itemRow.className = 'item-row';
         if (isExchange) itemRow.classList.add('exchange-row');
@@ -198,12 +196,12 @@ class BillingSystem {
             itemRow.innerHTML = `
                 <div>
                     <input type="text" class="form-control" placeholder="Description (optional)" 
-                           onchange="window.billingSystem.updateItem(${itemId}, 'description', this.value, true)">
+                           oninput="window.billingSystem.updateItem(${itemId}, 'description', this.value, true)">
                 </div>
                 <div>
                     <select class="form-control metal-type" 
                             onchange="window.billingSystem.updateItemMetal(${itemId}, this.value, true)">
-                        <option value="">Select Metal</option>
+                        <option value="">Select Metal *</option>
                         ${Object.keys(this.rates).map(metal => 
                             `<option value="${metal}">${metal}</option>`
                         ).join('')}
@@ -212,20 +210,20 @@ class BillingSystem {
                 <div>
                     <select class="form-control purity" 
                             onchange="window.billingSystem.updateItem(${itemId}, 'purity', this.value, true)">
-                        <option value="">Select Purity</option>
+                        <option value="">Select Purity *</option>
                     </select>
                 </div>
                 <div>
                     <input type="number" class="form-control" step="0.001" placeholder="Weight *" 
-                           onchange="window.billingSystem.updateItem(${itemId}, 'weight', this.value, true)">
+                           oninput="window.billingSystem.updateItem(${itemId}, 'weight', this.value, true)">
                 </div>
                 <div>
                     <input type="number" class="form-control" step="0.1" placeholder="Wastage % (optional)" 
-                           onchange="window.billingSystem.updateItem(${itemId}, 'wastageDeduction', this.value, true)">
+                           oninput="window.billingSystem.updateItem(${itemId}, 'wastageDeduction', this.value, true)">
                 </div>
                 <div>
                     <input type="number" class="form-control" step="0.01" placeholder="Melting Charges (optional)" 
-                           onchange="window.billingSystem.updateItem(${itemId}, 'meltingCharges', this.value, true)">
+                           oninput="window.billingSystem.updateItem(${itemId}, 'meltingCharges', this.value, true)">
                 </div>
                 <div>
                     <button class="btn btn-danger btn-sm" 
@@ -248,7 +246,7 @@ class BillingSystem {
             itemRow.innerHTML = `
                 <div>
                     <input type="text" class="form-control" placeholder="Description (optional)" 
-                           onchange="window.billingSystem.updateItem(${itemId}, 'description', this.value, false)">
+                           oninput="window.billingSystem.updateItem(${itemId}, 'description', this.value, false)">
                 </div>
                 <div>
                     <select class="form-control metal-type" 
@@ -267,11 +265,11 @@ class BillingSystem {
                 </div>
                 <div>
                     <input type="number" class="form-control" step="0.001" placeholder="Weight (g) *" 
-                           onchange="window.billingSystem.updateItem(${itemId}, 'weight', this.value, false)">
+                           oninput="window.billingSystem.updateItem(${itemId}, 'weight', this.value, false)">
                 </div>
                 <div>
                     <input type="number" class="form-control" step="0.01" placeholder="Making Charges *" 
-                           onchange="window.billingSystem.updateItem(${itemId}, 'makingCharges', this.value, false)">
+                           oninput="window.billingSystem.updateItem(${itemId}, 'makingCharges', this.value, false)">
                 </div>
                 <div>
                     <select class="form-control" 
@@ -300,10 +298,18 @@ class BillingSystem {
         }
         
         container.appendChild(itemRow);
+        
+        // Show exchange section if adding exchange item
+        if (isExchange) {
+            document.getElementById('exchangeSection').style.display = 'block';
+        }
+        
         this.updateResponsiveLayout();
     }
 
     updateItemMetal(itemId, metalType, isExchange) {
+        console.log('Updating metal type:', metalType, 'for item:', itemId);
+        
         const item = isExchange ? 
             this.currentBill.exchangeItems.find(i => i.id === itemId) :
             this.currentBill.items.find(i => i.id === itemId);
@@ -313,11 +319,14 @@ class BillingSystem {
             
             // Update purity options
             const puritySelect = document.querySelector(`#item-${itemId} .purity`);
-            if (puritySelect && this.rates[metalType]) {
-                const purities = this.rates[metalType].purityLevels || ['Standard'];
-                puritySelect.innerHTML = '<option value="">Select Purity</option>' + 
+            if (puritySelect) {
+                const purities = this.metalPurities[metalType] || ['Standard'];
+                console.log('Setting purity options for', metalType, ':', purities);
+                
+                puritySelect.innerHTML = '<option value="">Select Purity *</option>' + 
                     purities.map(purity => `<option value="${purity}">${purity}</option>`).join('');
                 
+                // Auto-select first purity option
                 if (purities.length > 0) {
                     item.purity = purities[0];
                     puritySelect.value = purities[0];
@@ -347,10 +356,26 @@ class BillingSystem {
             this.currentBill.exchangeItems = this.currentBill.exchangeItems.filter(
                 item => item.id !== itemId
             );
+            
+            // Hide exchange section if no exchange items left
+            if (this.currentBill.exchangeItems.length === 0) {
+                document.getElementById('exchangeSection').style.display = 'none';
+            }
         } else {
             this.currentBill.items = this.currentBill.items.filter(
                 item => item.id !== itemId
             );
+            
+            // Show placeholder if no items left
+            const itemsContainer = document.getElementById('itemsContainer');
+            if (this.currentBill.items.length === 0 && itemsContainer) {
+                itemsContainer.innerHTML = `
+                    <div class="text-center text-muted" style="padding: 20px;">
+                        <i class="fas fa-plus-circle fa-2x" style="margin-bottom: 10px;"></i>
+                        <p>Click "Add Item" to start adding jewellery items</p>
+                    </div>
+                `;
+            }
         }
         
         const element = document.getElementById(`item-${itemId}`);
@@ -360,12 +385,11 @@ class BillingSystem {
     }
 
     updateResponsiveLayout() {
-        // Update grid columns based on screen size
         const itemRows = document.querySelectorAll('.item-row');
         const screenWidth = window.innerWidth;
         
         itemRows.forEach(row => {
-            if (screenWidth < 640) {
+            if (screenWidth < 768) {
                 row.style.gridTemplateColumns = '1fr';
             } else if (screenWidth < 1024) {
                 row.style.gridTemplateColumns = 'repeat(2, 1fr)';
@@ -381,7 +405,7 @@ class BillingSystem {
 
     async updateSummary() {
         try {
-            // Calculate locally first for immediate feedback
+            // Calculate totals
             let metalValue = 0;
             let makingCharges = 0;
             let gstOnMetal = 0;
@@ -394,21 +418,17 @@ class BillingSystem {
             
             // Calculate new items
             for (const item of this.currentBill.items) {
-                if (item.metalType && item.weight > 0 && this.rates[item.metalType]) {
+                if (item.metalType && item.weight > 0) {
                     const rate = this.rates[item.metalType];
-                    let perGramRate = rate.rate;
+                    if (!rate) continue;
                     
+                    let perGramRate = rate.rate;
                     if (rate.unit === 'kg') {
                         perGramRate = rate.rate / 1000;
                     }
                     
                     // Calculate metal value
-                    let itemMetalValue = 0;
-                    if (rate.unit === 'carat') {
-                        itemMetalValue = perGramRate * item.weight;
-                    } else {
-                        itemMetalValue = perGramRate * item.weight;
-                    }
+                    let itemMetalValue = perGramRate * item.weight;
                     
                     // Calculate making charges
                     let itemMakingCharges = 0;
@@ -443,10 +463,11 @@ class BillingSystem {
             
             // Calculate exchange items
             for (const item of this.currentBill.exchangeItems) {
-                if (item.metalType && item.weight > 0 && this.rates[item.metalType]) {
+                if (item.metalType && item.weight > 0) {
                     const rate = this.rates[item.metalType];
-                    let perGramRate = rate.rate;
+                    if (!rate) continue;
                     
+                    let perGramRate = rate.rate;
                     if (rate.unit === 'kg') {
                         perGramRate = rate.rate / 1000;
                     }
@@ -534,7 +555,6 @@ class BillingSystem {
 
     async getAmountInWords(amount) {
         try {
-            // Send to backend for calculation
             const response = await fetch(`${this.apiBase}/utils/amount-words`, {
                 method: 'POST',
                 headers: {
@@ -547,16 +567,14 @@ class BillingSystem {
             if (response.ok) {
                 const data = await response.json();
                 return data.words || this.numberToWordsLocal(amount);
-            } else {
-                return this.numberToWordsLocal(amount);
             }
+            return this.numberToWordsLocal(amount);
         } catch (error) {
             return this.numberToWordsLocal(amount);
         }
     }
 
     numberToWordsLocal(num) {
-        // Simplified number to words conversion
         const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
         const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
         const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
@@ -597,7 +615,7 @@ class BillingSystem {
     }
 
     validateBill() {
-        // Validate only required fields
+        // Validate customer
         if (!this.currentBill.customer.name?.trim()) {
             this.showAlert('danger', 'Customer name is required');
             return false;
@@ -608,15 +626,13 @@ class BillingSystem {
             return false;
         }
         
-        // Validate items - only check required fields
+        // Validate items
         if (this.currentBill.items.length === 0) {
             this.showAlert('danger', 'At least one item is required');
             return false;
         }
         
         for (const item of this.currentBill.items) {
-            // Description is optional - removed validation
-            
             if (!item.metalType) {
                 this.showAlert('danger', 'Please select metal type for all items');
                 return false;
@@ -652,11 +668,10 @@ class BillingSystem {
         btn.disabled = true;
         
         try {
-            // Prepare bill data
             const billData = {
                 customer: this.currentBill.customer,
                 items: this.currentBill.items.map(item => ({
-                    description: item.description || '', // Optional field
+                    description: item.description || '',
                     metalType: item.metalType,
                     purity: item.purity,
                     weight: item.weight,
@@ -664,7 +679,7 @@ class BillingSystem {
                     makingChargesType: item.makingChargesType || 'percentage'
                 })),
                 exchangeItems: this.currentBill.exchangeItems.map(item => ({
-                    description: item.description || '', // Optional field
+                    description: item.description || '',
                     metalType: item.metalType,
                     purity: item.purity,
                     weight: item.weight,
@@ -678,7 +693,6 @@ class BillingSystem {
                 gstOnMaking: this.currentBill.gstOnMaking
             };
             
-            // Send to backend
             const response = await fetch(`${this.apiBase}/bills/create`, {
                 method: 'POST',
                 headers: {
@@ -707,7 +721,6 @@ class BillingSystem {
     }
 
     showBillPreview(bill) {
-        // Store bill for printing
         window.currentBill = bill;
         
         // Update preview
@@ -722,7 +735,7 @@ class BillingSystem {
         document.getElementById('previewInvoiceType').textContent = 
             bill.exchangeDetails.hasExchange ? 'Sale with Exchange' : 'Sale';
         
-        // Calculate totals for preview
+        // Calculate totals
         const metalValue = bill.gstDetails?.metalAmount || 0;
         const makingCharges = bill.gstDetails?.makingCharges || 0;
         const gstOnMetal = bill.gstDetails?.gstOnMetal || 0;
@@ -743,10 +756,10 @@ class BillingSystem {
         
         document.getElementById('previewItems').innerHTML = regularItems.map(item => `
             <tr>
-                <td style="padding: 8px; border: 1px solid #dee2e6;">${item.description || 'Item'}</td>
-                <td style="padding: 8px; border: 1px solid #dee2e6;">${item.metalType} ${item.purity}</td>
-                <td style="padding: 8px; border: 1px solid #dee2e6;">${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
-                <td style="padding: 8px; border: 1px solid #dee2e6;">₹${item.amount.toFixed(2)}</td>
+                <td>${item.description || 'Item'}</td>
+                <td>${item.metalType} ${item.purity}</td>
+                <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
+                <td>₹${item.amount.toFixed(2)}</td>
             </tr>
         `).join('');
         
@@ -756,10 +769,10 @@ class BillingSystem {
             
             document.getElementById('previewExchangeItems').innerHTML = exchangeItems.map(item => `
                 <tr>
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">${item.description || 'Old Item'}</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">${item.metalType} ${item.purity}</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">₹${Math.abs(item.amount).toFixed(2)}</td>
+                    <td>${item.description || 'Old Item'}</td>
+                    <td>${item.metalType} ${item.purity}</td>
+                    <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
+                    <td>₹${Math.abs(item.amount).toFixed(2)}</td>
                 </tr>
             `).join('');
             
@@ -858,9 +871,6 @@ class BillingSystem {
                     <p><strong>Name:</strong> ${bill.customer.name}</p>
                     <p><strong>Mobile:</strong> ${bill.customer.mobile}</p>
                     ${bill.customer.address ? `<p><strong>Address:</strong> ${bill.customer.address}</p>` : ''}
-                    ${bill.customer.pan ? `<p><strong>PAN:</strong> ${bill.customer.pan}</p>` : ''}
-                    ${bill.customer.aadhaar ? `<p><strong>Aadhaar:</strong> ${bill.customer.aadhaar}</p>` : ''}
-                    ${bill.customer.dob ? `<p><strong>Date of Birth:</strong> ${new Date(bill.customer.dob).toLocaleDateString('en-IN')}</p>` : ''}
                 </div>
                 
                 <h4>Items</h4>
@@ -1012,9 +1022,15 @@ class BillingSystem {
         this.currentBill.exchangeItems = [];
         this.currentBill.discount = 0;
         
-        document.getElementById('itemsContainer').innerHTML = '';
+        document.getElementById('itemsContainer').innerHTML = `
+            <div class="text-center text-muted" style="padding: 20px;">
+                <i class="fas fa-plus-circle fa-2x" style="margin-bottom: 10px;"></i>
+                <p>Click "Add Item" to start adding jewellery items</p>
+            </div>
+        `;
         document.getElementById('exchangeItems').innerHTML = '';
         document.getElementById('discount').value = '0';
+        document.getElementById('exchangeSection').style.display = 'none';
         
         // Reset to defaults
         this.currentBill.paymentMode = 'cash';
