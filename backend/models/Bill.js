@@ -1,44 +1,58 @@
 const mongoose = require('mongoose');
 
-const exchangeItemSchema = new mongoose.Schema({
+const itemSchema = new mongoose.Schema({
+  description: {
+    type: String,
+    required: true,
+    trim: true
+  },
   metalType: {
     type: String,
-    enum: ['gold', 'silver'],
-    required: true
+    required: true,
+    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others']
   },
   purity: {
     type: String,
-    enum: ['24K', '22K', '18K', '999', '925'],
     required: true
   },
   weight: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
-  wastageDeduction: {
+  rate: {
     type: Number,
-    default: 0,
-    min: 0
+    required: true
   },
-  ratePerKg: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  ratePerGram: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  metalValue: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  description: {
+  makingChargesType: {
     type: String,
-    trim: true
+    enum: ['percentage', 'fixed'],
+    default: 'percentage'
+  },
+  makingCharges: {
+    type: Number,
+    required: true
+  },
+  makingChargesAmount: {
+    type: Number,
+    required: true
+  },
+  amount: {
+    type: Number,
+    required: true
+  },
+  image: {
+    type: String
+  },
+  isExchangeItem: {
+    type: Boolean,
+    default: false
+  },
+  exchangeDetails: {
+    oldItemWeight: Number,
+    oldItemRate: Number,
+    wastageDeduction: Number,
+    meltingCharges: Number,
+    netValue: Number
   }
 });
 
@@ -48,89 +62,58 @@ const billSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  billType: {
-    type: String,
-    enum: ['sale', 'exchange', 'sale_exchange'],
-    required: true
-  },
-  date: {
+  billDate: {
     type: Date,
     default: Date.now
   },
-  customerName: {
-    type: String,
-    required: true,
-    trim: true
+  customer: {
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    mobile: {
+      type: String,
+      required: true
+    },
+    address: {
+      type: String,
+      required: true
+    },
+    dob: {
+      type: Date
+    },
+    pan: {
+      type: String
+    },
+    aadhaar: {
+      type: String
+    }
   },
-  customerPhone: {
-    type: String,
-    trim: true
-  },
-  customerAddress: {
-    type: String,
-    trim: true
-  },
-  // Sale items
-  items: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Item'
-  }],
-  // Exchange items (old items)
-  exchangeItems: [exchangeItemSchema],
-  
-  // Totals
-  totalMetalValue: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  totalMakingCharge: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  totalBeforeTax: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  cgstAmount: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  sgstAmount: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  totalTax: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  totalAmount: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  totalExchangeValue: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-  netPayable: {
+  items: [itemSchema],
+  subTotal: {
     type: Number,
     required: true
   },
-  balanceType: {
-    type: String,
-    enum: ['payable', 'refundable', 'zero'],
+  discount: {
+    type: Number,
+    default: 0
+  },
+  gst: {
+    type: Number,
     required: true
   },
-  paymentMethod: {
+  grandTotal: {
+    type: Number,
+    required: true
+  },
+  amountInWords: {
     type: String,
-    enum: ['cash', 'card', 'upi', 'bank_transfer'],
+    required: true
+  },
+  paymentMode: {
+    type: String,
+    enum: ['cash', 'card', 'upi', 'bank_transfer', 'credit'],
     default: 'cash'
   },
   paymentStatus: {
@@ -138,34 +121,53 @@ const billSchema = new mongoose.Schema({
     enum: ['paid', 'pending', 'partial'],
     default: 'paid'
   },
-  paidAmount: {
-    type: Number,
-    default: 0
+  exchangeDetails: {
+    hasExchange: {
+      type: Boolean,
+      default: false
+    },
+    oldItemsTotal: {
+      type: Number,
+      default: 0
+    },
+    newItemsTotal: {
+      type: Number,
+      default: 0
+    },
+    balancePayable: {
+      type: Number,
+      default: 0
+    },
+    balanceRefundable: {
+      type: Number,
+      default: 0
+    }
   },
-  dueAmount: {
-    type: Number,
-    default: 0
-  },
-  notes: {
-    type: String,
-    trim: true
+  qrCodes: {
+    billQR: String,
+    itemProofQR: String
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    required: true
   },
-  isDeleted: {
+  isActive: {
     type: Boolean,
-    default: false
+    default: true
   }
 }, {
   timestamps: true
 });
 
-// Index for faster queries
+// Indexes for faster queries
 billSchema.index({ billNumber: 1 });
-billSchema.index({ date: -1 });
-billSchema.index({ customerName: 1 });
-billSchema.index({ customerPhone: 1 });
+billSchema.index({ 'customer.mobile': 1 });
+billSchema.index({ billDate: -1 });
+billSchema.index({ 'customer.name': 'text' });
+billSchema.index({ metalType: 1 });
+billSchema.index({ 'createdBy': 1 });
 
-module.exports = mongoose.model('Bill', billSchema);
+const Bill = mongoose.model('Bill', billSchema);
+
+module.exports = Bill;
