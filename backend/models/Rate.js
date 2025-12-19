@@ -4,8 +4,8 @@ const rateSchema = new mongoose.Schema({
   metalType: {
     type: String,
     required: true,
-    unique: true,
-    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others']
+    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others'],
+    unique: true
   },
   rate: {
     type: Number,
@@ -14,12 +14,12 @@ const rateSchema = new mongoose.Schema({
   },
   unit: {
     type: String,
-    required: true,
-    enum: ['kg', 'carat', 'piece']
+    enum: ['kg', 'carat', 'piece'],
+    default: 'kg'
   },
   purityLevels: [{
     type: String,
-    required: true
+    default: ['22K', '18K', '14K']
   }],
   makingChargesDefault: {
     type: Number,
@@ -32,7 +32,15 @@ const rateSchema = new mongoose.Schema({
   },
   gstRate: {
     type: Number,
-    default: 3
+    default: 3,
+    min: 0,
+    max: 100
+  },
+  gstOnMaking: {
+    type: Number,
+    default: 5,
+    min: 0,
+    max: 100
   },
   lastUpdated: {
     type: Date,
@@ -46,36 +54,12 @@ const rateSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   }
+}, {
+  timestamps: true
 });
 
-// Calculate per gram rate for Gold/Silver/Platinum
-rateSchema.virtual('perGramRate').get(function() {
-  if (this.unit === 'kg') {
-    return this.rate / 1000;
-  }
-  return this.rate;
-});
-
-// Calculate per piece rate for diamond based on weight
-rateSchema.methods.calculateItemRate = function(purity, weight) {
-  let baseRate = this.rate;
-  
-  // Apply purity multipliers
-  if (this.metalType === 'Gold') {
-    if (purity === '24K') baseRate = baseRate;
-    else if (purity === '22K') baseRate = baseRate * 0.9167;
-    else if (purity === '18K') baseRate = baseRate * 0.75;
-    else if (purity === '14K') baseRate = baseRate * 0.5833;
-  }
-  
-  if (this.unit === 'kg') {
-    return (baseRate / 1000) * weight;
-  } else if (this.unit === 'carat') {
-    return baseRate * weight;
-  }
-  
-  return baseRate;
-};
+// Indexes
+rateSchema.index({ metalType: 1, active: 1 });
 
 const Rate = mongoose.model('Rate', rateSchema);
 
