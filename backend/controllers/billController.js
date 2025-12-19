@@ -1,350 +1,481 @@
 const Bill = require('../models/Bill');
-const Item = require('../models/Item');
 const Rate = require('../models/Rate');
 const { generateBillNumber } = require('../utils/billNumberGenerator');
 const { 
-  calculateBillTotals, 
-  calculateNetPayable,
-  numberToWords
+  numberToWords, 
+  calculateItemAmount, 
+  calculateExchangeValue,
+  calculateGST 
 } = require('../utils/calculations');
+const qr = require('qr-image');
 const { validationResult } = require('express-validator');
-const mongoose = require('mongoose');
 
-const createBill = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  
+exports.createBill = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
-        success: false, 
-        errors: errors.array() 
-      });
+      return res.status(400).json({ errors: errors.array() });
     }
-    
+
     const {
-      billType,
-      customerName,
-      customerPhone,
-      customerAddress,
+      customer,
       items,
-      exchangeItems,
-      paymentMethod,
-      paymentStatus,
-      paidAmount,
-      notes
+      discount = 0,
+      paymentMode = 'cash',
+      paymentStatus = 'paid',
+      exchangeItems = []
     } = req.body;
-    
-    // Get current rates
-    const rates = await Rate.findOne().sort({ createdAt: -1 }).session(session);
-    if (!rates) {
-      await session.abortTransaction();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Rates not found. Please set rates first.' 
-      });
-    }
-    
+
     // Generate bill number
     const billNumber = await generateBillNumber();
-    
-    // Process items
-    const itemPromises = items.map(async (itemData) => {
-      const rateMap = {
-        '24K': { perKg: rates.gold24K, perGram: rates.gold24KPerGram },
-        '22K': { perKg: rates.gold22K, perGram: rates.gold22KPerGram },
-        '18K': { perKg: rates.gold18K, perGram: rates.gold18KPerGram },
-        '999': { perKg: rates.silver999, perGram: rates.silver999PerGram },
-        '925': { perKg: rates.silver925, perGram: rates.silver925PerGram }
-      };
-      
-      const rate = rateMap[itemData.purity];
-      if (!rate) {
-        throw new Error(`Invalid purity: ${itemData.purity}`);
-      }
-      
-      const metalValue = itemData.netWeight * rate.perGram;
-      const makingChargeAmount = itemData.makingChargeType === 'percentage' 
-        ? (metalValue * itemData.makingChargeValue) / 100
-        : itemData.makingChargeValue;
-      
-      const totalBeforeTax = metalValue + makingChargeAmount;
-      const gst = {
-        cgst: (totalBeforeTax * 3) / 100,
-        sgst: (totalBeforeTax * 3) / 100
-      };
-      
-      const item = new Item({
-        description: itemData.description,
-        metalType: itemData.metalType,
-        purity: itemData.purity,
-        grossWeight: itemData.grossWeight,
-        netWeight: itemData.netWeight,
-        ratePerKg: rate.perKg,
-        ratePerGram: rate.perGram,
-        metalValue,
-        makingChargeType: itemData.makingChargeType,
-        makingChargeValue: itemData.makingChargeValue,
-        makingChargeAmount,
-        totalBeforeTax,
-        cgst: gst.cgst,
-        sgst: gst.sgst,
-        total: totalBeforeTax + gst.cgst + gst.sgst
-      });
-      
-      return await item.save({ session });
+
+    // Get current rates
+    const rates = await Rate.find({ active: true });
+    const rateMap = {};
+    rates.forEach(rate => {
+      rateMap[rate.metalType] = rate;
     });
-    
-    const savedItems = await Promise.all(itemPromises);
-    
-    // Calculate totals
-    const totals = calculateBillTotals(savedItems);
-    
-    // Process exchange items
-    let totalExchangeValue = 0;
-    const processedExchangeItems = exchangeItems?.map(exItem => {
-      const rateMap = {
-        '24K': { perKg: rates.gold24K, perGram: rates.gold24KPerGram },
-        '22K': { perKg: rates.gold22K, perGram: rates.gold22KPerGram },
-        '18K': { perKg: rates.gold18K, perGram: rates.gold18KPerGram },
-        '999': { perKg: rates.silver999, perGram: rates.silver999PerGram },
-        '925': { perKg: rates.silver925, perGram: rates.silver925PerGram }
-      };
-      
-      const rate = rateMap[exItem.purity];
-      if (!rate) {
-        throw new Error(`Invalid purity: ${exItem.purity}`);
+
+    // Calculate items
+    let subTotal = 0;
+    const calculatedItems = [];
+    const exchangeDetails = {
+      hasExchange: exchangeItems.length > 0,
+      oldItemsTotal: 0,
+      newItemsTotal: 0,
+      balancePayable: 0,
+      balanceRefundable: 0
+    };
+
+    // Process new items
+    for (const item of items) {
+      const rateInfo = rateMap[item.metalType];
+      if (!rateInfo) {
+        return res.status(400).json({
+          success: false,
+          message: `Rate not found for ${item.metalType}`
+        });
       }
+
+      const itemCalc = calculateItemAmount(item, rateInfo.perGramRate);
       
-      const metalValue = exItem.weight * rate.perGram;
-      const wastageDeduction = exItem.wastageDeduction || 0;
-      const exchangeValue = metalValue - (metalValue * wastageDeduction) / 100;
+      calculatedItems.push({
+        ...item,
+        rate: rateInfo.perGramRate,
+        makingChargesAmount: itemCalc.makingCharges,
+        amount: itemCalc.total
+      });
+
+      subTotal += itemCalc.total;
+    }
+
+    // Process exchange items
+    if (exchangeItems.length > 0) {
+      for (const oldItem of exchangeItems) {
+        const rateInfo = rateMap[oldItem.metalType];
+        if (!rateInfo) {
+          return res.status(400).json({
+            success: false,
+            message: `Rate not found for exchange item ${oldItem.metalType}`
+          });
+        }
+
+        const exchangeValue = calculateExchangeValue(oldItem, rateInfo.perGramRate);
+        exchangeDetails.oldItemsTotal += exchangeValue;
+
+        calculatedItems.push({
+          description: oldItem.description || 'Old Item Exchange',
+          metalType: oldItem.metalType,
+          purity: oldItem.purity,
+          weight: oldItem.weight,
+          rate: rateInfo.perGramRate,
+          makingChargesType: 'fixed',
+          makingCharges: 0,
+          makingChargesAmount: 0,
+          amount: -exchangeValue, // Negative amount for exchange
+          isExchangeItem: true,
+          exchangeDetails: {
+            oldItemWeight: oldItem.weight,
+            oldItemRate: rateInfo.perGramRate,
+            wastageDeduction: oldItem.wastageDeduction || 0,
+            meltingCharges: oldItem.meltingCharges || 0,
+            netValue: exchangeValue
+          }
+        });
+      }
+    }
+
+    // Apply discount
+    const totalAfterDiscount = subTotal - discount;
+
+    // Calculate GST (assuming 3% for jewellery)
+    const gst = calculateGST(totalAfterDiscount);
+
+    // Calculate grand total
+    const grandTotal = totalAfterDiscount + gst;
+
+    // Calculate exchange balances
+    if (exchangeDetails.hasExchange) {
+      exchangeDetails.newItemsTotal = subTotal;
+      const balance = exchangeDetails.oldItemsTotal - subTotal;
       
-      totalExchangeValue += exchangeValue;
-      
-      return {
-        ...exItem,
-        ratePerKg: rate.perKg,
-        ratePerGram: rate.perGram,
-        metalValue,
-        exchangeValue
-      };
-    }) || [];
-    
-    // Calculate net payable
-    const netPayableCalc = calculateNetPayable(totals.totalAmount, totalExchangeValue);
-    
-    // Calculate due amount
-    const dueAmount = paymentStatus === 'paid' ? 0 : 
-                     paymentStatus === 'partial' ? (netPayableCalc.netPayable - paidAmount) :
-                     netPayableCalc.netPayable;
-    
-    // Create bill
-    const bill = new Bill({
+      if (balance > 0) {
+        exchangeDetails.balanceRefundable = balance;
+      } else {
+        exchangeDetails.balancePayable = Math.abs(balance);
+      }
+    }
+
+    // Generate amount in words
+    const amountInWords = numberToWords(grandTotal);
+
+    // Generate QR codes
+    const billQRData = {
+      shop: 'Shri Mahakaleshwar Jewellers',
       billNumber,
-      billType,
-      customerName,
-      customerPhone,
-      customerAddress,
-      items: savedItems.map(item => item._id),
-      exchangeItems: processedExchangeItems,
-      totalMetalValue: totals.totalMetalValue,
-      totalMakingCharge: totals.totalMakingCharge,
-      totalBeforeTax: totals.totalBeforeTax,
-      cgstAmount: totals.cgstAmount,
-      sgstAmount: totals.sgstAmount,
-      totalTax: totals.totalTax,
-      totalAmount: totals.totalAmount,
-      totalExchangeValue,
-      netPayable: netPayableCalc.netPayable,
-      balanceType: netPayableCalc.balanceType,
-      paymentMethod,
+      customerName: customer.name,
+      totalAmount: grandTotal,
+      date: new Date().toISOString().split('T')[0],
+      address: 'Anisabad, Patna, Bihar'
+    };
+
+    const qrCodes = {
+      billQR: qr.imageSync(JSON.stringify(billQRData), { type: 'png' }).toString('base64'),
+      itemProofQR: '' // Will be generated after image upload
+    };
+
+    // Create bill
+    const bill = await Bill.create({
+      billNumber,
+      customer,
+      items: calculatedItems,
+      subTotal,
+      discount,
+      gst,
+      grandTotal,
+      amountInWords,
+      paymentMode,
       paymentStatus,
-      paidAmount: paidAmount || (paymentStatus === 'paid' ? netPayableCalc.netPayable : 0),
-      dueAmount,
-      notes,
+      exchangeDetails,
+      qrCodes,
       createdBy: req.user._id
     });
-    
-    const savedBill = await bill.save({ session });
-    
-    await session.commitTransaction();
-    
-    // Populate bill details
-    const populatedBill = await Bill.findById(savedBill._id)
-      .populate('items')
-      .populate('createdBy', 'username');
-    
+
     res.status(201).json({
       success: true,
-      message: 'Bill created successfully',
-      bill: populatedBill,
-      amountInWords: numberToWords(populatedBill.netPayable)
+      bill,
+      message: 'Bill created successfully'
     });
-    
+
   } catch (error) {
-    await session.abortTransaction();
     console.error('Create bill error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Server error' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
-  } finally {
-    session.endSession();
   }
 };
 
-const getBill = async (req, res) => {
+exports.getBill = async (req, res) => {
   try {
     const { id } = req.params;
     
     const bill = await Bill.findById(id)
-      .populate('items')
-      .populate('createdBy', 'username shopName address gstin phone');
-    
+      .populate('createdBy', 'name')
+      .lean();
+
     if (!bill) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Bill not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Bill not found'
       });
     }
-    
+
     res.json({
       success: true,
-      bill,
-      amountInWords: numberToWords(bill.netPayable)
+      bill
     });
+
   } catch (error) {
     console.error('Get bill error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };
 
-const getBillByNumber = async (req, res) => {
+exports.getBillByNumber = async (req, res) => {
   try {
     const { billNumber } = req.params;
     
     const bill = await Bill.findOne({ billNumber })
-      .populate('items')
-      .populate('createdBy', 'username shopName address gstin phone');
-    
+      .populate('createdBy', 'name')
+      .lean();
+
     if (!bill) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Bill not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Bill not found'
       });
     }
-    
+
     res.json({
       success: true,
-      bill,
-      amountInWords: numberToWords(bill.netPayable)
+      bill
     });
+
   } catch (error) {
     console.error('Get bill by number error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };
 
-const getBills = async (req, res) => {
+exports.getAllBills = async (req, res) => {
   try {
     const { 
       page = 1, 
-      limit = 10,
-      startDate,
+      limit = 50, 
+      startDate, 
       endDate,
-      customerName,
-      billType,
-      paymentStatus
+      search,
+      metalType,
+      paymentStatus 
     } = req.query;
-    
-    const filter = { isDeleted: false };
-    
-    if (startDate && endDate) {
-      filter.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+
+    const query = { isActive: true };
+
+    // Date filter
+    if (startDate || endDate) {
+      query.billDate = {};
+      if (startDate) query.billDate.$gte = new Date(startDate);
+      if (endDate) query.billDate.$lte = new Date(endDate);
     }
-    
-    if (customerName) {
-      filter.customerName = { $regex: customerName, $options: 'i' };
+
+    // Search filter
+    if (search) {
+      query.$or = [
+        { billNumber: { $regex: search, $options: 'i' } },
+        { 'customer.name': { $regex: search, $options: 'i' } },
+        { 'customer.mobile': { $regex: search, $options: 'i' } }
+      ];
     }
-    
-    if (billType) {
-      filter.billType = billType;
+
+    // Metal type filter
+    if (metalType) {
+      query['items.metalType'] = metalType;
     }
-    
+
+    // Payment status filter
     if (paymentStatus) {
-      filter.paymentStatus = paymentStatus;
+      query.paymentStatus = paymentStatus;
     }
-    
-    const bills = await Bill.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
+
+    const bills = await Bill.find(query)
+      .populate('createdBy', 'name')
+      .sort({ billDate: -1 })
       .skip((page - 1) * limit)
-      .populate('createdBy', 'username')
-      .select('-exchangeItems -items');
-    
-    const count = await Bill.countDocuments(filter);
-    
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await Bill.countDocuments(query);
+
     res.json({
       success: true,
       bills,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
-      totalRecords: count
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
     });
+
   } catch (error) {
-    console.error('Get bills error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    console.error('Get all bills error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };
 
-const deleteBill = async (req, res) => {
+exports.updateBill = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const bill = await Bill.findByIdAndUpdate(
-      id,
-      { isDeleted: true },
-      { new: true }
-    );
-    
+    const updateData = req.body;
+
+    const bill = await Bill.findById(id);
     if (!bill) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Bill not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Bill not found'
       });
     }
-    
+
+    // Don't allow updating certain fields
+    delete updateData.billNumber;
+    delete updateData.createdBy;
+    delete updateData.createdAt;
+
+    const updatedBill = await Bill.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('createdBy', 'name');
+
+    res.json({
+      success: true,
+      bill: updatedBill,
+      message: 'Bill updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Update bill error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+exports.deleteBill = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const bill = await Bill.findById(id);
+    if (!bill) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bill not found'
+      });
+    }
+
+    // Soft delete
+    bill.isActive = false;
+    await bill.save();
+
     res.json({
       success: true,
       message: 'Bill deleted successfully'
     });
+
   } catch (error) {
     console.error('Delete bill error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };
 
-module.exports = { 
-  createBill, 
-  getBill, 
-  getBillByNumber, 
-  getBills, 
-  deleteBill 
+exports.getDailyReport = async (req, res) => {
+  try {
+    const { date } = req.query;
+    const targetDate = date ? new Date(date) : new Date();
+    
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+    const bills = await Bill.find({
+      billDate: { $gte: startOfDay, $lte: endOfDay },
+      isActive: true
+    }).lean();
+
+    const report = {
+      date: startOfDay,
+      totalBills: bills.length,
+      totalSales: bills.reduce((sum, bill) => sum + bill.grandTotal, 0),
+      cashSales: 0,
+      cardSales: 0,
+      upiSales: 0,
+      metalWise: {},
+      exchangeSummary: {
+        totalExchanges: 0,
+        totalExchangeValue: 0
+      }
+    };
+
+    bills.forEach(bill => {
+      // Payment mode breakdown
+      if (bill.paymentMode === 'cash') report.cashSales += bill.grandTotal;
+      if (bill.paymentMode === 'card') report.cardSales += bill.grandTotal;
+      if (bill.paymentMode === 'upi') report.upiSales += bill.grandTotal;
+
+      // Metal-wise sales
+      bill.items.forEach(item => {
+        if (!item.isExchangeItem) {
+          report.metalWise[item.metalType] = report.metalWise[item.metalType] || {
+            count: 0,
+            amount: 0
+          };
+          report.metalWise[item.metalType].count += 1;
+          report.metalWise[item.metalType].amount += item.amount;
+        }
+      });
+
+      // Exchange summary
+      if (bill.exchangeDetails?.hasExchange) {
+        report.exchangeSummary.totalExchanges += 1;
+        report.exchangeSummary.totalExchangeValue += bill.exchangeDetails.oldItemsTotal;
+      }
+    });
+
+    res.json({
+      success: true,
+      report
+    });
+
+  } catch (error) {
+    console.error('Daily report error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+exports.regenerateQR = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const bill = await Bill.findById(id);
+    if (!bill) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bill not found'
+      });
+    }
+
+    // Regenerate bill QR
+    const billQRData = {
+      shop: 'Shri Mahakaleshwar Jewellers',
+      billNumber: bill.billNumber,
+      customerName: bill.customer.name,
+      totalAmount: bill.grandTotal,
+      date: bill.billDate.toISOString().split('T')[0],
+      address: 'Anisabad, Patna, Bihar'
+    };
+
+    const qrImage = qr.imageSync(JSON.stringify(billQRData), { type: 'png' });
+    bill.qrCodes.billQR = qrImage.toString('base64');
+    
+    await bill.save();
+
+    res.json({
+      success: true,
+      message: 'QR code regenerated',
+      qrCode: bill.qrCodes.billQR
+    });
+
+  } catch (error) {
+    console.error('Regenerate QR error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
 };
