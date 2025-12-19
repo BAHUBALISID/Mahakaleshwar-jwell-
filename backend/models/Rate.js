@@ -1,58 +1,82 @@
 const mongoose = require('mongoose');
 
 const rateSchema = new mongoose.Schema({
-  gold24K: {
+  metalType: {
+    type: String,
+    required: true,
+    unique: true,
+    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others']
+  },
+  rate: {
     type: Number,
     required: true,
     min: 0
   },
-  gold22K: {
-    type: Number,
+  unit: {
+    type: String,
     required: true,
-    min: 0
+    enum: ['kg', 'carat', 'piece']
   },
-  gold18K: {
+  purityLevels: [{
+    type: String,
+    required: true
+  }],
+  makingChargesDefault: {
     type: Number,
-    required: true,
-    min: 0
+    default: 10
   },
-  silver999: {
-    type: Number,
-    required: true,
-    min: 0
+  makingChargesType: {
+    type: String,
+    enum: ['percentage', 'fixed'],
+    default: 'percentage'
   },
-  silver925: {
+  gstRate: {
     type: Number,
-    required: true,
-    min: 0
+    default: 3
   },
   lastUpdated: {
     type: Date,
     default: Date.now
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  active: {
+    type: Boolean,
+    default: true
   }
-}, {
-  timestamps: true
 });
 
-// Virtual for per gram rates
-rateSchema.virtual('gold24KPerGram').get(function() {
-  return this.gold24K / 1000;
+// Calculate per gram rate for Gold/Silver/Platinum
+rateSchema.virtual('perGramRate').get(function() {
+  if (this.unit === 'kg') {
+    return this.rate / 1000;
+  }
+  return this.rate;
 });
 
-rateSchema.virtual('gold22KPerGram').get(function() {
-  return this.gold22K / 1000;
-});
+// Calculate per piece rate for diamond based on weight
+rateSchema.methods.calculateItemRate = function(purity, weight) {
+  let baseRate = this.rate;
+  
+  // Apply purity multipliers
+  if (this.metalType === 'Gold') {
+    if (purity === '24K') baseRate = baseRate;
+    else if (purity === '22K') baseRate = baseRate * 0.9167;
+    else if (purity === '18K') baseRate = baseRate * 0.75;
+    else if (purity === '14K') baseRate = baseRate * 0.5833;
+  }
+  
+  if (this.unit === 'kg') {
+    return (baseRate / 1000) * weight;
+  } else if (this.unit === 'carat') {
+    return baseRate * weight;
+  }
+  
+  return baseRate;
+};
 
-rateSchema.virtual('gold18KPerGram').get(function() {
-  return this.gold18K / 1000;
-});
+const Rate = mongoose.model('Rate', rateSchema);
 
-rateSchema.virtual('silver999PerGram').get(function() {
-  return this.silver999 / 1000;
-});
-
-rateSchema.virtual('silver925PerGram').get(function() {
-  return this.silver925 / 1000;
-});
-
-module.exports = mongoose.model('Rate', rateSchema);
+module.exports = Rate;
