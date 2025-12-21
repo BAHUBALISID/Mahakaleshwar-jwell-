@@ -247,9 +247,10 @@ exports.createBill = async (req, res) => {
       itemProofQR: ''
     };
 
-    // Create bill with GST details
+    // FIXED: Create bill with complete gstDetails object for frontend
     const billData = {
       billNumber,
+      billDate: new Date(), // FIXED: Explicitly set billDate
       customer,
       items: calculatedItems,
       subTotal,
@@ -260,18 +261,20 @@ exports.createBill = async (req, res) => {
         makingCharges: totalMakingCharges,
         gstOnMetal: gstCalculation.gstOnMetal,
         gstOnMaking: gstCalculation.gstOnMaking,
-        isIntraState,
+        isIntraState: isIntraState,
+        gstOnMetalRate: gstOnMetal,
+        gstOnMakingRate: gstOnMaking,
         ...(isIntraState ? {
           cgstOnMetal: gstCalculation.gstOnMetalCGST,
           sgstOnMetal: gstCalculation.gstOnMetalSGST,
           cgstOnMaking: gstCalculation.gstOnMakingCGST,
           sgstOnMaking: gstCalculation.gstOnMakingSGST,
-          totalCGST: (gstCalculation.gstOnMetal + gstCalculation.gstOnMaking) / 2,
-          totalSGST: (gstCalculation.gstOnMetal + gstCalculation.gstOnMaking) / 2
+          totalCGST: gstCalculation.gstOnMetalCGST + gstCalculation.gstOnMakingCGST,
+          totalSGST: gstCalculation.gstOnMetalSGST + gstCalculation.gstOnMakingSGST
         } : {
           igstOnMetal: gstCalculation.gstOnMetalIGST,
           igstOnMaking: gstCalculation.gstOnMakingIGST,
-          totalIGST: gstCalculation.gstOnMetal + gstCalculation.gstOnMaking
+          totalIGST: gstCalculation.gstOnMetalIGST + gstCalculation.gstOnMakingIGST
         })
       },
       grandTotal,
@@ -281,6 +284,7 @@ exports.createBill = async (req, res) => {
       exchangeDetails,
       qrCodes,
       createdBy: req.user._id,
+      isActive: true,
       isIntraState
     };
 
