@@ -928,81 +928,86 @@ class BillingSystem {
     }
 
     showBillPreview(bill) {
-        window.currentBill = bill;
+    window.currentBill = bill;
+    
+    document.getElementById('previewBillNumber').textContent = bill.billNumber;
+    document.getElementById('previewBillDate').textContent = 
+        new Date(bill.billDate).toLocaleDateString('en-IN');
+    document.getElementById('previewCustomerName').textContent = bill.customer.name;
+    document.getElementById('previewCustomerMobile').textContent = bill.customer.mobile;
+    document.getElementById('previewCustomerAddress').textContent = bill.customer.address || 'Not provided';
+    document.getElementById('previewPaymentMode').textContent = bill.paymentMode.toUpperCase();
+    document.getElementById('previewGSTType').textContent = bill.isIntraState ? 'CGST+SGST' : 'IGST';
+    document.getElementById('previewInvoiceType').textContent = 
+        bill.exchangeDetails.hasExchange ? 'Sale with Exchange' : 'Sale';
+    
+    // FIXED: Use gstDetails from bill response with fallbacks
+    const gstDetails = bill.gstDetails || {};
+    const metalAmount = gstDetails.metalAmount || 0;
+    const makingCharges = gstDetails.makingCharges || 0;
+    const gstOnMetal = gstDetails.gstOnMetal || 0;
+    const gstOnMaking = gstDetails.gstOnMaking || 0;
+    
+    // Calculate values if not directly available
+    const metalValue = metalAmount || (bill.grandTotal - gstOnMetal - gstOnMaking - bill.discount - makingCharges);
+    const makingChargesAmount = makingCharges || 0;
+    
+    document.getElementById('previewMetalValue').textContent = `₹${metalValue.toFixed(2)}`;
+    document.getElementById('previewMakingCharges').textContent = `₹${makingChargesAmount.toFixed(2)}`;
+    document.getElementById('previewSubTotal').textContent = `₹${(metalValue + makingChargesAmount).toFixed(2)}`;
+    document.getElementById('previewDiscount').textContent = `₹${bill.discount.toFixed(2)}`;
+    document.getElementById('previewGSTMetal').textContent = `₹${gstOnMetal.toFixed(2)}`;
+    document.getElementById('previewGSTMaking').textContent = `₹${gstOnMaking.toFixed(2)}`;
+    document.getElementById('previewGrandTotal').textContent = `₹${bill.grandTotal.toFixed(2)}`;
+    document.getElementById('previewAmountWords').textContent = bill.amountInWords;
+    
+    const regularItems = bill.items.filter(item => !item.isExchangeItem);
+    const exchangeItems = bill.items.filter(item => item.isExchangeItem);
+    
+    document.getElementById('previewItems').innerHTML = regularItems.map(item => `
+        <tr>
+            <td>${item.description || 'Item'}</td>
+            <td>${item.metalType} ${item.purity}</td>
+            <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
+            <td>₹${item.amount.toFixed(2)}</td>
+        </tr>
+    `).join('');
+    
+    if (exchangeItems.length > 0) {
+        document.getElementById('exchangePreviewSection').style.display = 'block';
+        document.getElementById('previewExchangeDetails').style.display = 'block';
         
-        document.getElementById('previewBillNumber').textContent = bill.billNumber;
-        document.getElementById('previewBillDate').textContent = 
-            new Date(bill.billDate).toLocaleDateString('en-IN');
-        document.getElementById('previewCustomerName').textContent = bill.customer.name;
-        document.getElementById('previewCustomerMobile').textContent = bill.customer.mobile;
-        document.getElementById('previewCustomerAddress').textContent = bill.customer.address || 'Not provided';
-        document.getElementById('previewPaymentMode').textContent = bill.paymentMode.toUpperCase();
-        document.getElementById('previewGSTType').textContent = bill.isIntraState ? 'CGST+SGST' : 'IGST';
-        document.getElementById('previewInvoiceType').textContent = 
-            bill.exchangeDetails.hasExchange ? 'Sale with Exchange' : 'Sale';
-        
-        const metalValue = bill.gstDetails?.metalAmount || 0;
-        const makingCharges = bill.gstDetails?.makingCharges || 0;
-        const gstOnMetal = bill.gstDetails?.gstOnMetal || 0;
-        const gstOnMaking = bill.gstDetails?.gstOnMaking || 0;
-        
-        document.getElementById('previewMetalValue').textContent = `₹${metalValue.toFixed(2)}`;
-        document.getElementById('previewMakingCharges').textContent = `₹${makingCharges.toFixed(2)}`;
-        document.getElementById('previewSubTotal').textContent = `₹${(metalValue + makingCharges).toFixed(2)}`;
-        document.getElementById('previewDiscount').textContent = `₹${bill.discount.toFixed(2)}`;
-        document.getElementById('previewGSTMetal').textContent = `₹${gstOnMetal.toFixed(2)}`;
-        document.getElementById('previewGSTMaking').textContent = `₹${gstOnMaking.toFixed(2)}`;
-        document.getElementById('previewGrandTotal').textContent = `₹${bill.grandTotal.toFixed(2)}`;
-        document.getElementById('previewAmountWords').textContent = bill.amountInWords;
-        
-        const regularItems = bill.items.filter(item => !item.isExchangeItem);
-        const exchangeItems = bill.items.filter(item => item.isExchangeItem);
-        
-        document.getElementById('previewItems').innerHTML = regularItems.map(item => `
+        document.getElementById('previewExchangeItems').innerHTML = exchangeItems.map(item => `
             <tr>
-                <td>${item.description || 'Item'}</td>
+                <td>${item.description || 'Old Item'}</td>
                 <td>${item.metalType} ${item.purity}</td>
                 <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
-                <td>₹${item.amount.toFixed(2)}</td>
+                <td>₹${Math.abs(item.amount).toFixed(2)}</td>
             </tr>
         `).join('');
         
-        if (exchangeItems.length > 0) {
-            document.getElementById('exchangePreviewSection').style.display = 'block';
-            document.getElementById('previewExchangeDetails').style.display = 'block';
-            
-            document.getElementById('previewExchangeItems').innerHTML = exchangeItems.map(item => `
-                <tr>
-                    <td>${item.description || 'Old Item'}</td>
-                    <td>${item.metalType} ${item.purity}</td>
-                    <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
-                    <td>₹${Math.abs(item.amount).toFixed(2)}</td>
-                </tr>
-            `).join('');
-            
-            document.getElementById('previewOldItemsTotal').textContent = 
-                `₹${bill.exchangeDetails.oldItemsTotal.toFixed(2)}`;
-            
-            if (bill.exchangeDetails.balancePayable > 0) {
-                document.getElementById('previewBalance').textContent = 
-                    `₹${bill.exchangeDetails.balancePayable.toFixed(2)} Payable`;
-            } else {
-                document.getElementById('previewBalance').textContent = 
-                    `₹${bill.exchangeDetails.balanceRefundable.toFixed(2)} Refundable`;
-            }
+        document.getElementById('previewOldItemsTotal').textContent = 
+            `₹${bill.exchangeDetails.oldItemsTotal.toFixed(2)}`;
+        
+        if (bill.exchangeDetails.balancePayable > 0) {
+            document.getElementById('previewBalance').textContent = 
+                `₹${bill.exchangeDetails.balancePayable.toFixed(2)} Payable`;
         } else {
-            document.getElementById('exchangePreviewSection').style.display = 'none';
-            document.getElementById('previewExchangeDetails').style.display = 'none';
+            document.getElementById('previewBalance').textContent = 
+                `₹${bill.exchangeDetails.balanceRefundable.toFixed(2)} Refundable`;
         }
-        
-        if (bill.qrCodes?.billQR) {
-            document.getElementById('previewBillQR').src = 
-                `data:image/png;base64,${bill.qrCodes.billQR}`;
-        }
-        
-        document.getElementById('billPreviewModal').classList.add('show');
+    } else {
+        document.getElementById('exchangePreviewSection').style.display = 'none';
+        document.getElementById('previewExchangeDetails').style.display = 'none';
     }
-
+    
+    if (bill.qrCodes?.billQR) {
+        document.getElementById('previewBillQR').src = 
+            `data:image/png;base64,${bill.qrCodes.billQR}`;
+    }
+    
+    document.getElementById('billPreviewModal').classList.add('show');
+}
     printBill() {
         if (!window.currentBill) {
             this.showAlert('warning', 'Please generate a bill first');
