@@ -103,6 +103,42 @@ const billSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // FIXED: Add comprehensive gstDetails schema
+  gstDetails: {
+    metalAmount: {
+      type: Number,
+      required: true
+    },
+    makingCharges: {
+      type: Number,
+      required: true
+    },
+    gstOnMetal: {
+      type: Number,
+      required: true
+    },
+    gstOnMaking: {
+      type: Number,
+      required: true
+    },
+    isIntraState: {
+      type: Boolean,
+      default: true
+    },
+    gstOnMetalRate: Number,
+    gstOnMakingRate: Number,
+    // Intra-state specific
+    cgstOnMetal: Number,
+    sgstOnMetal: Number,
+    cgstOnMaking: Number,
+    sgstOnMaking: Number,
+    totalCGST: Number,
+    totalSGST: Number,
+    // Inter-state specific
+    igstOnMetal: Number,
+    igstOnMaking: Number,
+    totalIGST: Number
+  },
   grandTotal: {
     type: Number,
     required: true
@@ -155,6 +191,10 @@ const billSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  isIntraState: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true
@@ -165,8 +205,8 @@ billSchema.index({ billNumber: 1 });
 billSchema.index({ 'customer.mobile': 1 });
 billSchema.index({ billDate: -1 });
 billSchema.index({ 'customer.name': 'text' });
-billSchema.index({ metalType: 1 });
-billSchema.index({ 'createdBy': 1 });
+billSchema.index({ 'items.metalType': 1 });
+billSchema.index({ createdBy: 1 });
 
 const Bill = mongoose.model('Bill', billSchema);
 
