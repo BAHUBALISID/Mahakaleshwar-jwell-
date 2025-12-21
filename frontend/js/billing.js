@@ -1,5 +1,3 @@
-//[file name]: billing.js
-//[file content begin]
 class BillingSystem {
     constructor() {
         this.apiBase = 'http://localhost:5000/api';
@@ -353,7 +351,7 @@ class BillingSystem {
                            oninput="window.billingSystem.handleItemInput('${itemId}', 'makingCharges', this.value, false)">
                 </div>
                 <div>
-                    <select class="form-control" 
+                    <select class="form-control making-charges-type" 
                             onchange="window.billingSystem.handleItemInput('${itemId}', 'makingChargesType', this.value, false)">
                         <option value="percentage">%</option>
                         <option value="fixed">₹ Fixed</option>
@@ -745,6 +743,7 @@ class BillingSystem {
             const puritySelect = itemRow.querySelector('.purity');
             const weightInput = itemRow.querySelector('input[type="number"]:nth-of-type(1)');
             const makingChargesInput = itemRow.querySelector('input[type="number"]:nth-of-type(2)');
+            const makingChargesTypeSelect = itemRow.querySelector('.making-charges-type'); // Fixed: Added class
             
             // Update item data from form fields
             if (metalTypeSelect) {
@@ -761,6 +760,10 @@ class BillingSystem {
             
             if (makingChargesInput) {
                 item.makingCharges = parseFloat(makingChargesInput.value) || 0;
+            }
+            
+            if (makingChargesTypeSelect) {
+                item.makingChargesType = makingChargesTypeSelect.value;
             }
             
             // Now validate
@@ -783,6 +786,10 @@ class BillingSystem {
                 this.showAlert('danger', `Please enter valid making charges for item ${i + 1}`);
                 return false;
             }
+            
+            if (!item.makingChargesType || !['percentage', 'fixed'].includes(item.makingChargesType)) {
+                item.makingChargesType = 'percentage'; // Default value
+            }
         }
         
         return true;
@@ -803,18 +810,22 @@ class BillingSystem {
             const customerName = document.getElementById('customerName').value.trim();
             const customerMobile = document.getElementById('customerMobile').value.trim();
             const customerAddress = document.getElementById('customerAddress').value.trim();
+            const customerDOB = document.getElementById('customerDOB').value;
+            const customerPAN = document.getElementById('customerPAN').value;
+            const customerAadhaar = document.getElementById('customerAadhaar').value;
             
             if (!customerName || !customerMobile) {
                 throw new Error('Customer name and mobile are required');
             }
             
+            // Prepare customer data - ensure optional fields are empty strings if not provided
             const customerData = {
                 name: customerName,
                 mobile: customerMobile,
-                address: customerAddress || 'Not provided',
-                dob: document.getElementById('customerDOB').value || '',
-                pan: document.getElementById('customerPAN').value || '',
-                aadhaar: document.getElementById('customerAadhaar').value || ''
+                address: customerAddress || '',
+                dob: customerDOB || '',
+                pan: customerPAN || '',
+                aadhaar: customerAadhaar || ''
             };
             
             // Prepare items data - ensure all required fields are present
@@ -829,7 +840,7 @@ class BillingSystem {
                 const puritySelect = itemRow.querySelector('.purity');
                 const weightInput = itemRow.querySelector('input[type="number"]:nth-of-type(1)');
                 const makingChargesInput = itemRow.querySelector('input[type="number"]:nth-of-type(2)');
-                const makingChargesTypeSelect = itemRow.querySelector('select:last-of-type');
+                const makingChargesTypeSelect = itemRow.querySelector('.making-charges-type');
                 
                 const itemData = {
                     description: item.description || '',
@@ -837,8 +848,13 @@ class BillingSystem {
                     purity: puritySelect ? puritySelect.value : item.purity,
                     weight: weightInput ? parseFloat(weightInput.value) || 0 : item.weight,
                     makingCharges: makingChargesInput ? parseFloat(makingChargesInput.value) || 0 : item.makingCharges,
-                    makingChargesType: makingChargesTypeSelect ? makingChargesTypeSelect.value : item.makingChargesType
+                    makingChargesType: makingChargesTypeSelect ? makingChargesTypeSelect.value : item.makingChargesType || 'percentage'
                 };
+                
+                // Validate makingChargesType
+                if (!['percentage', 'fixed'].includes(itemData.makingChargesType)) {
+                    itemData.makingChargesType = 'percentage';
+                }
                 
                 itemsData.push(itemData);
             }
