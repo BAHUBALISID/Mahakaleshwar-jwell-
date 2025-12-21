@@ -1009,47 +1009,85 @@ class BillingSystem {
     document.getElementById('billPreviewModal').classList.add('show');
 }
     printBill() {
-        if (!window.currentBill) {
-            this.showAlert('warning', 'Please generate a bill first');
-            return;
-        }
-        
-        const bill = window.currentBill;
-        const printContent = this.generatePrintHTML(bill);
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Bill ${bill.billNumber}</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 20px; font-size: 14px; }
-                    .invoice-container { max-width: 800px; margin: 0 auto; }
-                    .shop-name { text-align: center; color: #D4AF37; font-size: 24px; margin-bottom: 5px; }
-                    .shop-address { text-align: center; color: #666; margin-bottom: 5px; }
-                    .shop-contact { text-align: center; color: #666; margin-bottom: 20px; }
-                    .bill-info { display: flex; justify-content: space-between; margin: 20px 0; padding: 15px; background: #f5f5f5; }
-                    table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-                    .calc-row { display: flex; justify-content: space-between; margin: 5px 0; }
-                    .total { font-weight: bold; border-top: 2px solid #000; padding-top: 10px; margin-top: 10px; }
-                    @media print { body { margin: 0; } .no-print { display: none; } }
-                </style>
-            </head>
-            <body>
-                ${printContent}
-                <script>
-                    window.onload = function() {
-                        window.print();
-                        setTimeout(function() { window.close(); }, 1000);
-                    };
-                </script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
+    if (!window.currentBill) {
+        this.showAlert('warning', 'Please generate a bill first');
+        return;
     }
+    
+    const bill = window.currentBill;
+    
+    // Create print container if it doesn't exist
+    let printContainer = document.getElementById('printContainer');
+    if (!printContainer) {
+        printContainer = document.createElement('div');
+        printContainer.id = 'printContainer';
+        printContainer.className = 'print-container';
+        document.body.appendChild(printContainer);
+    }
+    
+    // Generate print content
+    const printContent = this.generatePrintHTML(bill);
+    
+    // Set the content
+    printContainer.innerHTML = printContent;
+    
+    // Show print container
+    printContainer.style.display = 'block';
+    
+    // Mobile detection
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+        // Mobile: Show in same page, then print after rendering
+        printContainer.scrollIntoView({ behavior: 'smooth' });
+        
+        // Wait for content to render
+        setTimeout(() => {
+            // Trigger print dialog
+            window.print();
+            
+            // Hide container after printing
+            setTimeout(() => {
+                printContainer.style.display = 'none';
+            }, 1000);
+        }, 500);
+    } else {
+        // Desktop: Open new window for printing
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Bill ${bill.billNumber}</title>
+                    <link rel="stylesheet" href="css/print.css">
+                    <style>
+                        body { margin: 0; padding: 0; }
+                        @page { size: A4; margin: 15mm; }
+                    </style>
+                </head>
+                <body>
+                    ${printContent}
+                    <script>
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.print();
+                                setTimeout(function() {
+                                    window.close();
+                                }, 100);
+                            }, 100);
+                        };
+                    </script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        } else {
+            // Fallback to same page if popup blocked
+            window.print();
+        }
+    }
+}
 
     generatePrintHTML(bill) {
         const regularItems = bill.items.filter(item => !item.isExchangeItem);
