@@ -1,213 +1,71 @@
 const mongoose = require('mongoose');
 
-const itemSchema = new mongoose.Schema({
-  description: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  metalType: {
-    type: String,
-    required: true,
-    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others']
-  },
-  purity: {
-    type: String,
-    required: true
-  },
-  weight: {
-    type: Number,
-    required: true
-  },
-  rate: {
-    type: Number,
-    required: true
-  },
-  makingChargesType: {
-    type: String,
-    enum: ['percentage', 'fixed'],
-    default: 'percentage'
-  },
-  makingCharges: {
-    type: Number,
-    required: true
-  },
-  makingChargesAmount: {
-    type: Number,
-    required: true
-  },
-  amount: {
-    type: Number,
-    required: true
-  },
-  image: {
-    type: String
-  },
-  isExchangeItem: {
-    type: Boolean,
-    default: false
-  },
-  exchangeDetails: {
-    oldItemWeight: Number,
-    oldItemRate: Number,
-    wastageDeduction: Number,
-    meltingCharges: Number,
-    netValue: Number
-  }
+const BillSchema = new mongoose.Schema({
+    billNumber: { type: String, unique: true, required: true },
+    billDate: { type: Date, default: Date.now },
+    
+    // Customer info
+    customer: {
+        name: String,
+        mobile: String,
+        address: String,
+        dob: Date,
+        pan: String,
+        aadhaar: String
+    },
+    
+    // Items
+    items: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Item' }],
+    
+    // Calculations (backend-calculated)
+    calculations: {
+        metalValue: Number,
+        makingCharges: Number,
+        gstAmount: Number, // 3% on metal value only
+        discount: Number,
+        exchangeValue: Number,
+        grandTotal: Number,
+        balancePayable: Number,
+        balanceRefundable: Number
+    },
+    
+    // Payment info
+    paymentMode: { type: String, enum: ['cash', 'card', 'upi', 'bank_transfer', 'credit'], default: 'cash' },
+    paymentStatus: { type: String, enum: ['pending', 'paid', 'partial'], default: 'paid' },
+    
+    // GST info
+    isIntraState: { type: Boolean, default: true },
+    gstOnMetal: { type: Number, default: 3 }, // Fixed 3%
+    gstOnMaking: { type: Number, default: 0 }, // Fixed 0%
+    
+    // Exchange details
+    exchangeDetails: {
+        hasExchange: { type: Boolean, default: false },
+        oldItemsTotal: Number,
+        balancePayable: Number,
+        balanceRefundable: Number
+    },
+    
+    // QR Codes
+    qrCodes: {
+        billQR: String, // Base64 encoded QR
+        paymentQR: String
+    },
+    
+    // Audit trail
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
 });
 
-const billSchema = new mongoose.Schema({
-  billNumber: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  billDate: {
-    type: Date,
-    default: Date.now
-  },
-  customer: {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    mobile: {
-      type: String,
-      required: true
-    },
-    address: {
-      type: String,
-      required: true
-    },
-    dob: {
-      type: Date
-    },
-    pan: {
-      type: String
-    },
-    aadhaar: {
-      type: String
+// Generate bill number before save
+BillSchema.pre('save', async function(next) {
+    if (!this.billNumber) {
+        const lastBill = await this.constructor.findOne().sort({ createdAt: -1 });
+        const lastNumber = lastBill ? parseInt(lastBill.billNumber.split('-')[1]) : 0;
+        this.billNumber = `SMJ-${String(lastNumber + 1).padStart(5, '0')}`;
     }
-  },
-  items: [itemSchema],
-  subTotal: {
-    type: Number,
-    required: true
-  },
-  discount: {
-    type: Number,
-    default: 0
-  },
-  gst: {
-    type: Number,
-    required: true
-  },
-  // FIXED: Add comprehensive gstDetails schema
-  gstDetails: {
-    metalAmount: {
-      type: Number,
-      required: true
-    },
-    makingCharges: {
-      type: Number,
-      required: true
-    },
-    gstOnMetal: {
-      type: Number,
-      required: true
-    },
-    gstOnMaking: {
-      type: Number,
-      required: true
-    },
-    isIntraState: {
-      type: Boolean,
-      default: true
-    },
-    gstOnMetalRate: Number,
-    gstOnMakingRate: Number,
-    // Intra-state specific
-    cgstOnMetal: Number,
-    sgstOnMetal: Number,
-    cgstOnMaking: Number,
-    sgstOnMaking: Number,
-    totalCGST: Number,
-    totalSGST: Number,
-    // Inter-state specific
-    igstOnMetal: Number,
-    igstOnMaking: Number,
-    totalIGST: Number
-  },
-  grandTotal: {
-    type: Number,
-    required: true
-  },
-  amountInWords: {
-    type: String,
-    required: true
-  },
-  paymentMode: {
-    type: String,
-    enum: ['cash', 'card', 'upi', 'bank_transfer', 'credit'],
-    default: 'cash'
-  },
-  paymentStatus: {
-    type: String,
-    enum: ['paid', 'pending', 'partial'],
-    default: 'paid'
-  },
-  exchangeDetails: {
-    hasExchange: {
-      type: Boolean,
-      default: false
-    },
-    oldItemsTotal: {
-      type: Number,
-      default: 0
-    },
-    newItemsTotal: {
-      type: Number,
-      default: 0
-    },
-    balancePayable: {
-      type: Number,
-      default: 0
-    },
-    balanceRefundable: {
-      type: Number,
-      default: 0
-    }
-  },
-  qrCodes: {
-    billQR: String,
-    itemProofQR: String
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  isIntraState: {
-    type: Boolean,
-    default: true
-  }
-}, {
-  timestamps: true
+    next();
 });
 
-// Indexes for faster queries
-billSchema.index({ billNumber: 1 });
-billSchema.index({ 'customer.mobile': 1 });
-billSchema.index({ billDate: -1 });
-billSchema.index({ 'customer.name': 'text' });
-billSchema.index({ 'items.metalType': 1 });
-billSchema.index({ createdBy: 1 });
-
-const Bill = mongoose.model('Bill', billSchema);
-
-module.exports = Bill;
+module.exports = mongoose.model('Bill', BillSchema);
