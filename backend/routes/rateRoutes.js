@@ -2,35 +2,39 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const rateController = require('../controllers/rateController');
-const { auth, staffOrAdmin } = require('../middleware/auth');
+const { auth, adminOnly } = require('../middleware/auth');
 
 // Validation rules
 const updateRateValidation = [
   body('rate').isFloat({ min: 0 }).withMessage('Rate must be a positive number'),
-  body('makingChargesDefault').optional().isFloat({ min: 0 }).withMessage('Making charges must be positive'),
-  body('gstRate').optional().isFloat({ min: 0, max: 100 }).withMessage('GST rate must be between 0-100'),
-  body('purityLevels').optional().isArray().withMessage('Purity levels must be an array')
+  body('purity').notEmpty().withMessage('Purity is required'),
+  body('unit').optional().isIn(['gram', 'kg', 'carat']).withMessage('Invalid unit')
 ];
 
-const addCategoryValidation = [
-  body('name').trim().notEmpty().withMessage('Category name is required'),
-  body('unit').isIn(['kg', 'carat', 'piece']).withMessage('Valid unit is required'),
-  body('purityLevels').isArray().withMessage('Purity levels must be an array'),
-  body('makingChargesDefault').optional().isFloat({ min: 0 }).withMessage('Making charges must be positive'),
-  body('gstRate').optional().isFloat({ min: 0, max: 100 }).withMessage('GST rate must be between 0-100')
+const addRateValidation = [
+  body('metalType').isIn(['Gold', 'Silver', 'Diamond', 'Platinum', 'Others']).withMessage('Valid metal type is required'),
+  body('purity').trim().notEmpty().withMessage('Purity is required'),
+  body('rate').isFloat({ min: 0 }).withMessage('Rate must be a positive number'),
+  body('unit').isIn(['gram', 'kg', 'carat']).withMessage('Valid unit is required')
 ];
 
-// Public routes (rates are public)
+// Public routes
 router.get('/', rateController.getRates);
+router.get('/all', rateController.getAllRates); // Get all rates for admin panel
+router.get('/:metalType/:purity', rateController.getRate);
+
+// Calculate price
 router.post('/calculate', rateController.calculateItemPrice);
+router.post('/calculate-exchange', rateController.calculateExchangePrice);
 
-// Protected routes (staff and admin)
+// Protected routes (admin only)
 router.use(auth);
-router.use(staffOrAdmin);
+router.use(adminOnly);
 
-router.put('/:metalType', updateRateValidation, rateController.updateRate);
-router.post('/category', addCategoryValidation, rateController.addMetalCategory);
-router.put('/category/:metalType/toggle', rateController.toggleMetalCategory);
-router.get('/:metalType/history', rateController.getRateHistory);
+router.post('/', addRateValidation, rateController.addRate);
+router.put('/:metalType/:purity', updateRateValidation, rateController.updateRate);
+router.put('/:id', updateRateValidation, rateController.updateRateById);
+router.delete('/:id', rateController.deleteRate);
+router.get('/history/:metalType', rateController.getRateHistory);
 
 module.exports = router;
