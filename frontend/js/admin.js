@@ -5,336 +5,253 @@ class AdminDashboard {
         this.apiBase = 'http://localhost:5000/api';
         this.token = window.auth.getToken();
         this.charts = {};
+        
         this.init();
     }
 
     async init() {
-        await this.loadDashboardData();
-        this.setupEventListeners();
-        this.initCharts();
-        this.setupDateFilters();
-    }
-
-    async loadDashboardData() {
         try {
-            // Load all data in parallel
-            const [salesData, aiAnalysis, customerReport] = await Promise.all([
-                this.fetchSalesData(),
-                this.fetchAIAnalysis(),
-                this.fetchCustomerReport()
-            ]);
-
-            this.updateStats(salesData);
-            this.updateAIInsights(aiAnalysis);
-            this.updateCustomerInsights(customerReport);
-            this.updateRecentBills();
-            
+            this.setupEventListeners();
+            this.setupDateFilters();
+            await this.loadDashboardData();
+            this.initCharts();
         } catch (error) {
-            console.error('Error loading dashboard data:', error);
-            showAlert('danger', 'Failed to load dashboard data');
+            console.error('Error initializing dashboard:', error);
+            this.showAlert('danger', 'Failed to initialize dashboard');
         }
     }
 
-    async fetchSalesData(timeFilter = 'current_month') {
-        try {
-            const response = await fetch(
-                `${this.apiBase}/reports/sales?timeFilter=${timeFilter}`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
+    setupEventListeners() {
+        // Time filter buttons
+        document.querySelectorAll('.time-filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.time-filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.loadDashboardData(e.target.dataset.filter);
             });
-            
-            const data = await response.json();
-            return data.success ? data.report : null;
-        } catch (error) {
-            console.error('Fetch sales data error:', error);
-            return null;
-        }
-    }
+        });
 
-    async fetchAIAnalysis(timeFilter = 'current_month') {
-        try {
-            const response = await fetch(
-                `${this.apiBase}/reports/ai-analysis?timeFilter=${timeFilter}`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-            
-            const data = await response.json();
-            return data.success ? data.analysis : null;
-        } catch (error) {
-            console.error('Fetch AI analysis error:', error);
-            return null;
-        }
-    }
-
-    async fetchCustomerReport() {
-        try {
-            const response = await fetch(`${this.apiBase}/reports/customer?limit=10`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-            
-            const data = await response.json();
-            return data.success ? data : null;
-        } catch (error) {
-            console.error('Fetch customer report error:', error);
-            return null;
-        }
-    }
-
-    updateStats(salesData) {
-        if (!salesData) return;
-        
-        // Update stat cards
-        document.getElementById('totalSales').textContent = 
-            `₹${salesData.summary.totalPeriodSales.toLocaleString()}`;
-        
-        document.getElementById('totalBills').textContent = 
-            salesData.summary.totalPeriodBills.toLocaleString();
-        
-        document.getElementById('averageBill').textContent = 
-            `₹${salesData.summary.averageDailySales.toFixed(2)}`;
-        
-        // Calculate growth (simplified)
-        const growth = 12.5; // This would be calculated from previous period
-        document.getElementById('salesGrowth').innerHTML = 
-            `<span class="stat-change">+${growth}%</span> vs last month`;
-        
-        // Update metal distribution
-        this.updateMetalDistribution(salesData.summary.metalWiseTotal);
-    }
-
-    updateMetalDistribution(metalData) {
-        const container = document.getElementById('metalDistribution');
-        if (!container || !metalData) return;
-        
-        const total = Object.values(metalData).reduce((sum, metal) => sum + metal.amount, 0);
-        
-        container.innerHTML = Object.entries(metalData)
-            .map(([metal, data]) => {
-                const percentage = total > 0 ? (data.amount / total * 100).toFixed(1) : 0;
-                return `
-                    <div class="metal-item">
-                        <div class="metal-name">${metal}</div>
-                        <div class="metal-bar">
-                            <div class="metal-fill" style="width: ${percentage}%"></div>
-                        </div>
-                        <div class="metal-value">
-                            ₹${data.amount.toLocaleString()} (${percentage}%)
-                        </div>
-                    </div>
-                `;
-            }).join('');
-    }
-
-    updateAIInsights(analysis) {
-        const container = document.getElementById('aiInsights');
-        if (!container || !analysis) {
-            container.innerHTML = '<div class="alert alert-warning">AI insights not available</div>';
-            return;
-        }
-        
-        // Parse AI response and format for display
-        const insights = this.parseAIResponse(analysis.insights || analysis);
-        
-        container.innerHTML = `
-            <div class="insight-section">
-                <h4><i class="fas fa-chart-line"></i> Executive Summary</h4>
-                <p>${insights.summary || 'No summary available'}</p>
-            </div>
-            
-            <div class="insight-section">
-                <h4><i class="fas fa-gem"></i> Top Performing Metals</h4>
-                <p>${insights.topMetals || 'No metal analysis available'}</p>
-            </div>
-            
-            <div class="insight-section">
-                <h4><i class="fas fa-lightbulb"></i> Recommendations</h4>
-                <ul>
-                    ${insights.recommendations ? insights.recommendations
-                        .map(rec => `<li>${rec}</li>`).join('') : 
-                        '<li>No specific recommendations at this time</li>'}
-                </ul>
-            </div>
-            
-            <div class="insight-section">
-                <h4><i class="fas fa-exclamation-triangle"></i> Risk Alerts</h4>
-                <p>${insights.risks || 'No risk alerts at this time'}</p>
-            </div>
-        `;
-    }
-
-    parseAIResponse(aiText) {
-        // Simple parsing of AI response
-        // In production, you might want to structure the AI response better
-        const insights = {
-            summary: '',
-            topMetals: '',
-            recommendations: [],
-            risks: ''
-        };
-        
-        if (typeof aiText === 'string') {
-            // Try to extract sections
-            const sections = aiText.split('\n\n');
-            
-            sections.forEach(section => {
-                if (section.includes('EXECUTIVE SUMMARY')) {
-                    insights.summary = section.replace('EXECUTIVE SUMMARY', '').trim();
-                } else if (section.includes('METAL-WISE PERFORMANCE')) {
-                    insights.topMetals = section.replace('METAL-WISE PERFORMANCE', '').trim();
-                } else if (section.includes('RECOMMENDATIONS')) {
-                    const recs = section.replace('RECOMMENDATIONS', '').trim().split('\n');
-                    insights.recommendations = recs.filter(rec => rec.trim());
-                } else if (section.includes('RISK ALERTS')) {
-                    insights.risks = section.replace('RISK ALERTS', '').trim();
-                }
-            });
-            
-            // If parsing failed, use first 500 characters as summary
-            if (!insights.summary && aiText.length > 0) {
-                insights.summary = aiText.substring(0, 500) + '...';
+        // Apply date filter
+        document.getElementById('applyDateFilter')?.addEventListener('click', () => {
+            const startDate = document.getElementById('startDate')?.value;
+            const endDate = document.getElementById('endDate')?.value;
+            if (startDate && endDate) {
+                this.loadDashboardData('custom', startDate, endDate);
             }
-        }
-        
-        return insights;
+        });
+
+        // Refresh dashboard
+        document.getElementById('refreshDashboardBtn')?.addEventListener('click', () => this.refreshDashboard());
+
+        // Manage rates button
+        document.getElementById('manageRatesBtn')?.addEventListener('click', () => this.showRatesModal());
+
+        // Manage users button
+        document.getElementById('manageUsersBtn')?.addEventListener('click', () => this.showUsersModal());
+
+        // Export sales
+        document.getElementById('exportSalesBtn')?.addEventListener('click', () => this.exportSales());
+
+        // Export customers
+        document.getElementById('exportCustomersBtn')?.addEventListener('click', () => this.exportCustomers());
+
+        // Close modal handlers
+        document.querySelectorAll('.modal .close').forEach(closeBtn => {
+            closeBtn.addEventListener('click', function() {
+                this.closest('.modal').classList.remove('show');
+            });
+        });
+
+        // Close modal on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
     }
 
-    updateCustomerInsights(customerReport) {
-        const container = document.getElementById('customerInsights');
-        if (!container || !customerReport) return;
+    setupDateFilters() {
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
         
-        const { customers, segments } = customerReport;
-        
-        container.innerHTML = `
-            <div class="customer-stats">
-                <div class="stat-box">
-                    <div class="stat-label">Premium Customers</div>
-                    <div class="stat-value">${segments.premium.count}</div>
-                    <div class="stat-sub">₹${segments.premium.total.toLocaleString()}</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">Regular Customers</div>
-                    <div class="stat-value">${segments.regular.count}</div>
-                    <div class="stat-sub">₹${segments.regular.total.toLocaleString()}</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">New Customers</div>
-                    <div class="stat-value">${segments.new.count}</div>
-                    <div class="stat-sub">₹${segments.new.total.toLocaleString()}</div>
-                </div>
-            </div>
+        if (startDate && endDate) {
+            // Set default dates (current month)
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
             
-            <div class="top-customers">
-                <h5>Top Customers</h5>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Total Purchase</th>
-                            <th>Visits</th>
-                            <th>Last Visit</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${customers.slice(0, 5).map(customer => `
-                            <tr>
-                                <td>${customer.name}</td>
-                                <td>₹${customer.totalPurchase.toLocaleString()}</td>
-                                <td>${customer.totalBills}</td>
-                                <td>${new Date(customer.lastPurchase).toLocaleDateString()}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
+            startDate.value = firstDay.toISOString().split('T')[0];
+            endDate.value = lastDay.toISOString().split('T')[0];
+        }
     }
 
-    async updateRecentBills() {
+    async loadDashboardData(timeFilter = 'current_month', startDate = null, endDate = null) {
         try {
-            const response = await fetch(`${this.apiBase}/bills?limit=10`, {
+            let url = `${this.apiBase}/admin/dashboard-stats`;
+            const params = [];
+            
+            if (timeFilter) params.push(`timeFilter=${timeFilter}`);
+            if (startDate && endDate) {
+                params.push(`startDate=${startDate}`);
+                params.push(`endDate=${endDate}`);
+            }
+            
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+            
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
             });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
             
             const data = await response.json();
             
             if (data.success) {
-                const container = document.getElementById('recentBills');
-                container.innerHTML = `
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Bill No</th>
-                                <th>Customer</th>
-                                <th>Amount</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.bills.map(bill => `
-                                <tr>
-                                    <td>
-                                        <a href="#" onclick="adminDashboard.viewBill('${bill._id}')">
-                                            ${bill.billNumber}
-                                        </a>
-                                    </td>
-                                    <td>${bill.customer.name}</td>
-                                    <td>₹${bill.grandTotal.toFixed(2)}</td>
-                                    <td>${new Date(bill.billDate).toLocaleDateString()}</td>
-                                    <td>
-                                        <span class="status-badge status-${bill.paymentStatus}">
-                                            ${bill.paymentStatus}
-                                        </span>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
+                this.updateDashboardStats(data.stats);
+                this.updateCharts(data.charts);
+            } else {
+                throw new Error(data.message || 'Failed to load dashboard data');
             }
         } catch (error) {
-            console.error('Error loading recent bills:', error);
+            console.error('Load dashboard error:', error);
+            this.showAlert('danger', 'Failed to load dashboard data');
         }
     }
 
-    initCharts() {
-        // Initialize sales trend chart
-        this.initSalesTrendChart();
+    async refreshDashboard() {
+        const btn = document.getElementById('refreshDashboardBtn');
+        const originalHtml = btn.innerHTML;
         
-        // Initialize metal distribution chart
-        this.initMetalDistributionChart();
+        btn.innerHTML = '<span class="spinner"></span> Refreshing...';
+        btn.disabled = true;
         
-        // Initialize payment mode chart
-        this.initPaymentModeChart();
+        try {
+            await this.loadDashboardData();
+            await this.loadRecentBills();
+            await this.loadAIInsights();
+            this.showAlert('success', 'Dashboard refreshed successfully');
+        } catch (error) {
+            console.error('Refresh dashboard error:', error);
+            this.showAlert('danger', 'Failed to refresh dashboard');
+        } finally {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     }
 
-    initSalesTrendChart() {
+    async loadRecentBills() {
+        try {
+            const response = await fetch(`${this.apiBase}/bills/recent`, {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.updateRecentBills(data.bills);
+            }
+        } catch (error) {
+            console.error('Load recent bills error:', error);
+        }
+    }
+
+    async loadAIInsights() {
+        try {
+            const response = await fetch(`${this.apiBase}/ai/insights`, {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.updateAIInsights(data.insights);
+            }
+        } catch (error) {
+            console.error('Load AI insights error:', error);
+        }
+    }
+
+    updateDashboardStats(stats) {
+        if (!stats) return;
+        
+        document.getElementById('totalSales')?.textContent = `₹${stats.totalSales?.toLocaleString() || '0'}`;
+        document.getElementById('totalBills')?.textContent = stats.totalBills || '0';
+        document.getElementById('averageBill')?.textContent = `₹${(stats.averageBill || 0).toFixed(2)}`;
+        document.getElementById('exchangeBills')?.textContent = stats.exchangeBills || '0';
+        
+        // Update sales growth
+        const salesGrowth = document.getElementById('salesGrowth');
+        if (salesGrowth) {
+            const growth = stats.salesGrowth || 0;
+            if (growth >= 0) {
+                salesGrowth.innerHTML = `<span class="stat-change">+${growth.toFixed(1)}%</span> vs last month`;
+            } else {
+                salesGrowth.innerHTML = `<span class="stat-change" style="color: #dc3545;">${growth.toFixed(1)}%</span> vs last month`;
+            }
+        }
+    }
+
+    updateCharts(chartData) {
+        if (!chartData) return;
+        
+        // Sales trend chart
+        if (chartData.salesTrend) {
+            this.createSalesTrendChart(chartData.salesTrend);
+        }
+        
+        // Metal distribution chart
+        if (chartData.metalDistribution) {
+            this.createMetalDistributionChart(chartData.metalDistribution);
+        }
+        
+        // Payment mode chart
+        if (chartData.paymentModes) {
+            this.createPaymentModeChart(chartData.paymentModes);
+        }
+    }
+
+    createSalesTrendChart(data) {
         const ctx = document.getElementById('salesTrendChart');
         if (!ctx) return;
         
-        // Sample data - in production, fetch from API
-        const data = {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            datasets: [{
-                label: 'Daily Sales (₹)',
-                data: [125000, 189000, 95000, 210000, 175000, 285000, 165000],
-                borderColor: '#D4AF37',
-                backgroundColor: 'rgba(212, 175, 55, 0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        };
+        // Destroy existing chart
+        if (this.charts.salesTrend) {
+            this.charts.salesTrend.destroy();
+        }
         
         this.charts.salesTrend = new Chart(ctx, {
             type: 'line',
-            data: data,
+            data: {
+                labels: data.labels || [],
+                datasets: [{
+                    label: 'Sales (₹)',
+                    data: data.values || [],
+                    borderColor: '#D4AF37',
+                    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
             options: {
                 responsive: true,
                 plugins: {
@@ -343,7 +260,7 @@ class AdminDashboard {
                     },
                     title: {
                         display: true,
-                        text: 'Sales Trend - Last 7 Days'
+                        text: 'Sales Trend'
                     }
                 },
                 scales: {
@@ -360,27 +277,29 @@ class AdminDashboard {
         });
     }
 
-    initMetalDistributionChart() {
+    createMetalDistributionChart(data) {
         const ctx = document.getElementById('metalDistributionChart');
         if (!ctx) return;
         
-        const data = {
-            labels: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Others'],
-            datasets: [{
-                data: [45, 25, 20, 5, 5],
-                backgroundColor: [
-                    '#FFD700', // Gold
-                    '#C0C0C0', // Silver
-                    '#B9F2FF', // Diamond
-                    '#E5E4E2', // Platinum
-                    '#6C757D'  // Others
-                ]
-            }]
-        };
+        if (this.charts.metalDistribution) {
+            this.charts.metalDistribution.destroy();
+        }
         
         this.charts.metalDistribution = new Chart(ctx, {
             type: 'doughnut',
-            data: data,
+            data: {
+                labels: data.labels || [],
+                datasets: [{
+                    data: data.values || [],
+                    backgroundColor: [
+                        '#FFD700', // Gold
+                        '#C0C0C0', // Silver
+                        '#B9F2FF', // Diamond
+                        '#E5E4E2', // Platinum
+                        '#6C757D'  // Others
+                    ]
+                }]
+            },
             options: {
                 responsive: true,
                 plugins: {
@@ -396,27 +315,30 @@ class AdminDashboard {
         });
     }
 
-    initPaymentModeChart() {
+    createPaymentModeChart(data) {
         const ctx = document.getElementById('paymentModeChart');
         if (!ctx) return;
         
-        const data = {
-            labels: ['Cash', 'Card', 'UPI', 'Bank Transfer'],
-            datasets: [{
-                label: 'Payment Distribution',
-                data: [60, 20, 15, 5],
-                backgroundColor: [
-                    '#28a745', // Cash - green
-                    '#007bff', // Card - blue
-                    '#6f42c1', // UPI - purple
-                    '#fd7e14'  // Bank - orange
-                ]
-            }]
-        };
+        if (this.charts.paymentMode) {
+            this.charts.paymentMode.destroy();
+        }
         
         this.charts.paymentMode = new Chart(ctx, {
             type: 'bar',
-            data: data,
+            data: {
+                labels: data.labels || [],
+                datasets: [{
+                    label: 'Payment Distribution',
+                    data: data.values || [],
+                    backgroundColor: [
+                        '#28a745', // Cash
+                        '#007bff', // Card
+                        '#6f42c1', // UPI
+                        '#17a2b8', // Bank Transfer
+                        '#ffc107'  // Credit
+                    ]
+                }]
+            },
             options: {
                 responsive: true,
                 plugins: {
@@ -442,188 +364,398 @@ class AdminDashboard {
         });
     }
 
-    setupEventListeners() {
-        // Time filter buttons
-        document.querySelectorAll('.time-filter-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const timeFilter = e.target.dataset.filter;
-                
-                // Update active button
-                document.querySelectorAll('.time-filter-btn').forEach(b => {
-                    b.classList.remove('active');
-                });
-                e.target.classList.add('active');
-                
-                // Reload data for selected period
-                await this.reloadDashboardData(timeFilter);
-            });
+    updateRecentBills(bills) {
+        const tbody = document.getElementById('recentBills');
+        if (!tbody) return;
+        
+        if (!bills || bills.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No recent bills</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        
+        bills.forEach(bill => {
+            const statusClass = bill.status === 'paid' ? 'status-success' : 'status-warning';
+            const statusText = bill.status === 'paid' ? 'Paid' : 'Pending';
+            
+            html += `
+                <tr style="cursor: pointer;" onclick="window.adminDashboard.showBillDetails('${bill._id}')">
+                    <td>${bill.billNumber}</td>
+                    <td>${bill.customer?.name || 'N/A'}</td>
+                    <td>₹${(bill.summary?.grandTotal || 0).toFixed(2)}</td>
+                    <td>${new Date(bill.date).toLocaleDateString()}</td>
+                    <td>${bill.paymentMode || 'Cash'}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                </tr>
+            `;
         });
         
-        // Refresh button
-        document.getElementById('refreshDashboardBtn').addEventListener('click', () => {
-            this.refreshDashboard();
-        });
-        
-        // Export buttons
-        document.getElementById('exportSalesBtn').addEventListener('click', () => {
-            this.exportSalesReport();
-        });
-        
-        document.getElementById('exportCustomersBtn').addEventListener('click', () => {
-            this.exportCustomerReport();
-        });
-        
-        // Manage rates button
-        document.getElementById('manageRatesBtn').addEventListener('click', () => {
-            this.showRatesModal();
-        });
-        
-        // Manage users button
-        document.getElementById('manageUsersBtn').addEventListener('click', () => {
-            this.showUsersModal();
-        });
+        tbody.innerHTML = html;
     }
 
-    setupDateFilters() {
-        // Setup date range picker for custom filter
-        const startDate = document.getElementById('startDate');
-        const endDate = document.getElementById('endDate');
-        const applyDateFilterBtn = document.getElementById('applyDateFilter');
+    updateAIInsights(insights) {
+        const container = document.getElementById('aiInsights');
+        if (!container) return;
         
-        if (startDate && endDate && applyDateFilterBtn) {
-            // Set default dates (current month)
-            const now = new Date();
-            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            
-            startDate.value = firstDay.toISOString().split('T')[0];
-            endDate.value = lastDay.toISOString().split('T')[0];
-            
-            applyDateFilterBtn.addEventListener('click', async () => {
-                const customFilter = {
-                    startDate: startDate.value,
-                    endDate: endDate.value
-                };
-                
-                await this.reloadDashboardData('custom', customFilter);
-            });
+        if (!insights || insights.length === 0) {
+            container.innerHTML = '<div class="insight-section"><p>No insights available for this period.</p></div>';
+            return;
+        }
+        
+        let html = '';
+        
+        insights.forEach(insight => {
+            html += `
+                <div class="insight-section">
+                    <h4><i class="fas fa-${insight.icon || 'lightbulb'}"></i> ${insight.title || 'Insight'}</h4>
+                    <p>${insight.description || 'No description available'}</p>
+                    ${insight.recommendations ? `
+                        <ul>
+                            ${insight.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                        </ul>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+        
+        const insightTime = document.getElementById('insightTime');
+        if (insightTime) {
+            insightTime.textContent = 'Updated ' + new Date().toLocaleTimeString();
         }
     }
 
-    async reloadDashboardData(timeFilter, customFilter = null) {
-        // Show loading state
-        const dashboardContent = document.getElementById('dashboardContent');
-        const originalContent = dashboardContent.innerHTML;
-        dashboardContent.innerHTML = `
-            <div class="loading-overlay">
-                <div class="spinner"></div>
-                <p>Loading dashboard data...</p>
-            </div>
-        `;
-        
+    async showRatesModal() {
         try {
-            let salesData, aiAnalysis;
+            const response = await fetch(`${this.apiBase}/rates/all`, {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
             
-            if (customFilter) {
-                // Fetch data with custom date range
-                const query = new URLSearchParams(customFilter).toString();
-                salesData = await this.fetchSalesDataWithQuery(`?${query}`);
-                aiAnalysis = await this.fetchAIAnalysisWithQuery(`?${query}`);
-            } else {
-                // Fetch data with time filter
-                salesData = await this.fetchSalesData(timeFilter);
-                aiAnalysis = await this.fetchAIAnalysis(timeFilter);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
             }
             
-            this.updateStats(salesData);
-            this.updateAIInsights(aiAnalysis);
+            const data = await response.json();
             
-            // Update charts with new data
-            this.updateCharts(salesData);
-            
+            if (data.success) {
+                this.updateRatesTable(data.rates);
+                document.getElementById('ratesModal').classList.add('show');
+            } else {
+                throw new Error(data.message || 'Failed to load rates');
+            }
         } catch (error) {
-            console.error('Error reloading dashboard:', error);
-            showAlert('danger', 'Failed to reload dashboard data');
-        } finally {
-            // Restore content
-            dashboardContent.innerHTML = originalContent;
+            console.error('Load rates error:', error);
+            this.showAlert('danger', 'Failed to load rates');
         }
     }
 
-    async fetchSalesDataWithQuery(query) {
+    updateRatesTable(rates) {
+        const tbody = document.getElementById('ratesTableBody');
+        if (!tbody) return;
+        
+        if (!rates || rates.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No rates found</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        
+        // Define metal purities as per BUSINESS RULES (same as billing.js)
+        const metalPurities = {
+            'Gold': ['24K', '22K', '18K', '14K'],
+            'Silver': ['999', '925', '900', '850', '800'],
+            'Diamond': ['SI1', 'VS1', 'VVS1', 'IF', 'FL'],
+            'Platinum': ['999', '950', '900', '850'],
+            'Others': ['Standard']
+        };
+        
+        // Create rows for each metal and purity
+        Object.keys(metalPurities).forEach(metalType => {
+            metalPurities[metalType].forEach(purity => {
+                const existingRate = rates.find(r => r.metalType === metalType && r.purity === purity);
+                const rateId = existingRate ? existingRate._id : 'new';
+                const rateValue = existingRate ? existingRate.rate : '';
+                const unit = metalType === 'Diamond' ? 'carat' : 'gram';
+                const displayRate = rateValue ? `₹${rateValue.toFixed(2)}` : 'N/A';
+                
+                html += `
+                    <tr>
+                        <td>${metalType}</td>
+                        <td>${purity}</td>
+                        <td>
+                            <input type="number" 
+                                   class="form-control rate-input" 
+                                   id="rate-${metalType}-${purity}" 
+                                   value="${rateValue}" 
+                                   placeholder="Enter rate"
+                                   step="0.01"
+                                   min="0">
+                        </td>
+                        <td>${unit}</td>
+                        <td>
+                            <span id="perGram-${metalType}-${purity}">${displayRate}</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-primary btn-sm" 
+                                    onclick="window.adminDashboard.saveRate('${metalType}', '${purity}', '${rateId}')">
+                                <i class="fas fa-save"></i> Save
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+        
+        tbody.innerHTML = html;
+    }
+
+    async saveRate(metalType, purity, rateId) {
+        const input = document.getElementById(`rate-${metalType}-${purity}`);
+        if (!input) {
+            this.showAlert('danger', 'Rate input not found');
+            return;
+        }
+        
+        const rate = parseFloat(input.value);
+        
+        if (!rate || rate <= 0) {
+            this.showAlert('danger', 'Please enter a valid rate greater than 0');
+            return;
+        }
+        
         try {
-            const response = await fetch(`${this.apiBase}/reports/sales${query}`, {
+            const url = rateId === 'new' 
+                ? `${this.apiBase}/rates` 
+                : `${this.apiBase}/rates/${rateId}`;
+            
+            const method = rateId === 'new' ? 'POST' : 'PUT';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({
+                    metalType,
+                    purity,
+                    rate,
+                    unit: metalType === 'Diamond' ? 'carat' : 'gram'
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update per gram display
+                const displayElement = document.getElementById(`perGram-${metalType}-${purity}`);
+                if (displayElement) {
+                    displayElement.textContent = `₹${rate.toFixed(2)}`;
+                }
+                this.showAlert('success', 'Rate saved successfully');
+            } else {
+                throw new Error(data.message || 'Failed to save rate');
+            }
+        } catch (error) {
+            console.error('Save rate error:', error);
+            this.showAlert('danger', 'Failed to save rate');
+        }
+    }
+
+    async showUsersModal() {
+        try {
+            const response = await fetch(`${this.apiBase}/users`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
             });
             
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
             const data = await response.json();
-            return data.success ? data.report : null;
+            
+            if (data.success) {
+                this.updateUsersTable(data.users);
+                document.getElementById('usersModal').classList.add('show');
+            } else {
+                throw new Error(data.message || 'Failed to load users');
+            }
         } catch (error) {
-            console.error('Fetch sales data error:', error);
-            return null;
+            console.error('Load users error:', error);
+            this.showAlert('danger', 'Failed to load users');
         }
     }
 
-    async fetchAIAnalysisWithQuery(query) {
+    updateUsersTable(users) {
+        const tbody = document.getElementById('usersTableBody');
+        if (!tbody) return;
+        
+        if (!users || users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No users found</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        
+        users.forEach(user => {
+            const statusClass = user.active ? 'status-success' : 'status-danger';
+            const statusText = user.active ? 'Active' : 'Inactive';
+            
+            html += `
+                <tr>
+                    <td>${user.name}</td>
+                    <td>${user.email}</td>
+                    <td><span class="badge ${user.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">${user.role}</span></td>
+                    <td>${user.mobile || 'N/A'}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="window.adminDashboard.editUser('${user._id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm ml-1" onclick="window.adminDashboard.deleteUser('${user._id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+    }
+
+    editUser(userId) {
+        this.showAlert('info', 'Edit user feature will be implemented in next version');
+    }
+
+    async deleteUser(userId) {
+        if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+            return;
+        }
+        
         try {
-            const response = await fetch(`${this.apiBase}/reports/ai-analysis${query}`, {
+            const response = await fetch(`${this.apiBase}/users/${userId}`, {
+                method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
             });
             
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
             const data = await response.json();
-            return data.success ? data.analysis : null;
+            
+            if (data.success) {
+                this.showAlert('success', 'User deleted successfully');
+                this.showUsersModal(); // Refresh users list
+            } else {
+                throw new Error(data.message || 'Failed to delete user');
+            }
         } catch (error) {
-            console.error('Fetch AI analysis error:', error);
-            return null;
+            console.error('Delete user error:', error);
+            this.showAlert('danger', 'Failed to delete user');
         }
     }
 
-    updateCharts(salesData) {
-        if (!salesData || !salesData.dailyData) return;
-        
-        // Update sales trend chart
-        if (this.charts.salesTrend) {
-            const labels = salesData.dailyData.map(day => day.date);
-            const data = salesData.dailyData.map(day => day.totalSales);
-            
-            this.charts.salesTrend.data.labels = labels;
-            this.charts.salesTrend.data.datasets[0].data = data;
-            this.charts.salesTrend.update();
-        }
-        
-        // Update metal distribution chart
-        if (this.charts.metalDistribution && salesData.summary.metalWiseTotal) {
-            const metals = Object.keys(salesData.summary.metalWiseTotal);
-            const amounts = metals.map(metal => salesData.summary.metalWiseTotal[metal].amount);
-            
-            this.charts.metalDistribution.data.labels = metals;
-            this.charts.metalDistribution.data.datasets[0].data = amounts;
-            this.charts.metalDistribution.update();
-        }
-    }
-
-    async refreshDashboard() {
-        const btn = document.getElementById('refreshDashboardBtn');
-        const originalHtml = btn.innerHTML;
-        
-        btn.innerHTML = '<span class="spinner"></span> Refreshing...';
-        btn.disabled = true;
-        
-        await this.loadDashboardData();
-        
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
-        
-        showAlert('success', 'Dashboard refreshed successfully');
-    }
-
-    async exportSalesReport() {
+    async showBillDetails(billId) {
         try {
-            const response = await fetch(`${this.apiBase}/reports/sales?format=excel`, {
+            const response = await fetch(`${this.apiBase}/bills/${billId}`, {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.updateBillDetailsModal(data.bill);
+                document.getElementById('billDetailsModal').classList.add('show');
+            } else {
+                throw new Error(data.message || 'Failed to load bill details');
+            }
+        } catch (error) {
+            console.error('Load bill details error:', error);
+            this.showAlert('danger', 'Failed to load bill details');
+        }
+    }
+
+    updateBillDetailsModal(bill) {
+        if (!bill) return;
+        
+        document.getElementById('billDetailNumber').textContent = bill.billNumber || 'N/A';
+        document.getElementById('billDetailDate').textContent = new Date(bill.date).toLocaleDateString();
+        document.getElementById('billDetailCustomer').textContent = bill.customer?.name || 'N/A';
+        document.getElementById('billDetailMobile').textContent = bill.customer?.mobile || 'N/A';
+        document.getElementById('billDetailAddress').textContent = bill.customer?.address || 'N/A';
+        document.getElementById('billDetailTotal').textContent = `₹${(bill.summary?.grandTotal || 0).toFixed(2)}`;
+        document.getElementById('billDetailPayment').textContent = bill.paymentMode || 'Cash';
+        
+        // Update items
+        const itemsTbody = document.getElementById('billDetailItems');
+        if (itemsTbody) {
+            let itemsHtml = '';
+            
+            if (bill.items && bill.items.length > 0) {
+                bill.items.forEach(item => {
+                    if (!item.isExchange) {
+                        itemsHtml += `
+                            <tr>
+                                <td>${item.product || 'N/A'}</td>
+                                <td>${item.metalType} ${item.purity}</td>
+                                <td>${(item.ntWt || 0).toFixed(3)} g</td>
+                                <td>₹${(item.totalValue || 0).toFixed(2)}</td>
+                            </tr>
+                        `;
+                    }
+                });
+            } else {
+                itemsHtml = '<tr><td colspan="4" class="text-center">No items found</td></tr>';
+            }
+            
+            itemsTbody.innerHTML = itemsHtml;
+        }
+        
+        // Check for exchange items
+        const hasExchange = bill.items?.some(item => item.isExchange);
+        const exchangeDiv = document.getElementById('billDetailExchange');
+        
+        if (exchangeDiv) {
+            if (hasExchange) {
+                exchangeDiv.style.display = 'block';
+                document.getElementById('billDetailOldItems').textContent = 
+                    `₹${(bill.summary?.exchangeValue || 0).toFixed(2)}`;
+                
+                if (bill.summary?.balancePayable > 0) {
+                    document.getElementById('billDetailBalance').textContent = 
+                        `₹${bill.summary.balancePayable.toFixed(2)} Payable`;
+                } else {
+                    document.getElementById('billDetailBalance').textContent = 
+                        `₹${(bill.summary?.balanceRefundable || 0).toFixed(2)} Refundable`;
+                }
+            } else {
+                exchangeDiv.style.display = 'none';
+            }
+        }
+    }
+
+    async exportSales() {
+        try {
+            const response = await fetch(`${this.apiBase}/reports/export/sales`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
@@ -640,19 +772,19 @@ class AdminDashboard {
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
                 
-                showAlert('success', 'Sales report exported successfully');
+                this.showAlert('success', 'Sales report exported successfully');
             } else {
                 throw new Error('Export failed');
             }
         } catch (error) {
-            console.error('Export error:', error);
-            showAlert('danger', 'Failed to export sales report');
+            console.error('Export sales error:', error);
+            this.showAlert('danger', 'Failed to export sales report');
         }
     }
 
-    async exportCustomerReport() {
+    async exportCustomers() {
         try {
-            const response = await fetch(`${this.apiBase}/reports/customer?format=excel`, {
+            const response = await fetch(`${this.apiBase}/reports/export/customers`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
@@ -663,281 +795,105 @@ class AdminDashboard {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `customer-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+                a.download = `customers-report-${new Date().toISOString().split('T')[0]}.xlsx`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
                 
-                showAlert('success', 'Customer report exported successfully');
+                this.showAlert('success', 'Customers report exported successfully');
             } else {
                 throw new Error('Export failed');
             }
         } catch (error) {
-            console.error('Export error:', error);
-            showAlert('danger', 'Failed to export customer report');
+            console.error('Export customers error:', error);
+            this.showAlert('danger', 'Failed to export customers report');
         }
     }
 
-    async showRatesModal() {
-        try {
-            const response = await fetch(`${this.apiBase}/rates`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                const modal = document.getElementById('ratesModal');
-                const tbody = modal.querySelector('tbody');
-                
-                tbody.innerHTML = data.rates.map(rate => `
-                    <tr>
-                        <td>${rate.metalType}</td>
-                        <td>
-                            <input type="number" class="form-control rate-input" 
-                                   value="${rate.rate}" 
-                                   data-metal="${rate.metalType}"
-                                   step="0.01">
-                        </td>
-                        <td>${rate.unit}</td>
-                        <td>₹${(rate.rate / (rate.unit === 'kg' ? 1000 : 1)).toFixed(2)}/${rate.unit === 'kg' ? 'g' : rate.unit}</td>
-                        <td>${rate.purityLevels.join(', ')}</td>
-                        <td>
-                            <button class="btn btn-primary btn-sm update-rate-btn" 
-                                    data-metal="${rate.metalType}">
-                                Update
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
-                
-                // Add event listeners to update buttons
-                modal.querySelectorAll('.update-rate-btn').forEach(btn => {
-                    btn.addEventListener('click', async (e) => {
-                        const metalType = e.target.dataset.metal;
-                        const input = modal.querySelector(`.rate-input[data-metal="${metalType}"]`);
-                        const newRate = parseFloat(input.value);
-                        
-                        if (isNaN(newRate) || newRate < 0) {
-                            showAlert('danger', 'Please enter a valid rate');
-                            return;
-                        }
-                        
-                        await this.updateRate(metalType, newRate);
-                    });
-                });
-                
-                modal.classList.add('show');
-            }
-        } catch (error) {
-            console.error('Error loading rates:', error);
-            showAlert('danger', 'Failed to load rates');
-        }
-    }
-
-    async updateRate(metalType, rate) {
-        try {
-            const response = await fetch(`${this.apiBase}/rates/${metalType}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify({ rate })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                showAlert('success', `${metalType} rate updated successfully`);
-                
-                // Refresh rates in billing system if it exists
-                if (window.billingSystem) {
-                    await window.billingSystem.loadRates();
-                }
-                
-                if (window.exchangeSystem) {
-                    await window.exchangeSystem.loadRates();
-                }
-            } else {
-                showAlert('danger', data.message || 'Failed to update rate');
-            }
-        } catch (error) {
-            console.error('Update rate error:', error);
-            showAlert('danger', 'Failed to update rate');
-        }
-    }
-
-    async showUsersModal() {
-        try {
-            const response = await fetch(`${this.apiBase}/auth/users`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                const modal = document.getElementById('usersModal');
-                const tbody = modal.querySelector('tbody');
-                
-                tbody.innerHTML = data.users.map(user => `
-                    <tr>
-                        <td>${user.name}</td>
-                        <td>${user.email}</td>
-                        <td>${user.role}</td>
-                        <td>${user.mobile}</td>
-                        <td>
-                            <span class="status-badge ${user.isActive ? 'status-active' : 'status-inactive'}">
-                                ${user.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                        </td>
-                        <td>
-                            ${user._id !== window.auth.getUser().id ? `
-                                <button class="btn btn-sm ${user.isActive ? 'btn-warning' : 'btn-success'}"
-                                        onclick="adminDashboard.toggleUserStatus('${user._id}', ${!user.isActive})">
-                                    ${user.isActive ? 'Deactivate' : 'Activate'}
-                                </button>
-                            ` : ''}
-                        </td>
-                    </tr>
-                `).join('');
-                
-                modal.classList.add('show');
-            }
-        } catch (error) {
-            console.error('Error loading users:', error);
-            showAlert('danger', 'Failed to load users');
-        }
-    }
-
-    async toggleUserStatus(userId, isActive) {
-        if (!confirm(`Are you sure you want to ${isActive ? 'activate' : 'deactivate'} this user?`)) {
-            return;
-        }
-        
-        try {
-            const response = await fetch(`${this.apiBase}/auth/users/${userId}/status`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify({ isActive })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                showAlert('success', `User ${isActive ? 'activated' : 'deactivated'} successfully`);
-                this.showUsersModal(); // Refresh the list
-            } else {
-                showAlert('danger', data.message || 'Failed to update user');
-            }
-        } catch (error) {
-            console.error('Toggle user status error:', error);
-            showAlert('danger', 'Failed to update user');
-        }
-    }
-
-    async viewBill(billId) {
-        try {
-            const response = await fetch(`${this.apiBase}/bills/${billId}`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showBillDetails(data.bill);
-            }
-        } catch (error) {
-            console.error('Error viewing bill:', error);
-            showAlert('danger', 'Failed to load bill details');
-        }
-    }
-
-    showBillDetails(bill) {
-        const modal = document.getElementById('billDetailsModal');
-        
-        modal.querySelector('#billDetailNumber').textContent = bill.billNumber;
-        modal.querySelector('#billDetailDate').textContent = 
-            new Date(bill.billDate).toLocaleString();
-        modal.querySelector('#billDetailCustomer').textContent = bill.customer.name;
-        modal.querySelector('#billDetailMobile').textContent = bill.customer.mobile;
-        modal.querySelector('#billDetailAddress').textContent = bill.customer.address;
-        modal.querySelector('#billDetailTotal').textContent = `₹${bill.grandTotal.toFixed(2)}`;
-        modal.querySelector('#billDetailPayment').textContent = 
-            `${bill.paymentMode.toUpperCase()} - ${bill.paymentStatus}`;
-        
-        // Items list
-        const itemsList = modal.querySelector('#billDetailItems');
-        itemsList.innerHTML = bill.items
-            .filter(item => !item.isExchangeItem)
-            .map(item => `
-                <tr>
-                    <td>${item.description}</td>
-                    <td>${item.metalType} ${item.purity}</td>
-                    <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
-                    <td>₹${item.amount.toFixed(2)}</td>
-                </tr>
-            `).join('');
-        
-        // Exchange details if any
-        const exchangeSection = modal.querySelector('#billDetailExchange');
-        if (bill.exchangeDetails.hasExchange) {
-            exchangeSection.style.display = 'block';
-            exchangeSection.querySelector('#billDetailOldItems').textContent = 
-                `₹${bill.exchangeDetails.oldItemsTotal.toFixed(2)}`;
-            exchangeSection.querySelector('#billDetailBalance').textContent = 
-                bill.exchangeDetails.balancePayable > 0 ?
-                `₹${bill.exchangeDetails.balancePayable.toFixed(2)} Payable` :
-                `₹${bill.exchangeDetails.balanceRefundable.toFixed(2)} Refundable`;
+    initCharts() {
+        // Initialize charts if data exists
+        if (typeof Chart !== 'undefined') {
+            // Charts will be created when data is loaded
         } else {
-            exchangeSection.style.display = 'none';
+            console.warn('Chart.js not loaded');
         }
+    }
+
+    showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+        `;
         
-        modal.classList.add('show');
+        const container = document.getElementById('alertContainer');
+        if (container) {
+            container.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentElement) {
+                    alertDiv.classList.remove('show');
+                    setTimeout(() => alertDiv.remove(), 150);
+                }
+            }, 5000);
+        }
+    }
+
+    showLoading(show) {
+        const loadingElement = document.getElementById('dashboardLoading');
+        const contentElement = document.getElementById('dashboardContent');
+        
+        if (loadingElement && contentElement) {
+            if (show) {
+                loadingElement.style.display = 'flex';
+                contentElement.style.opacity = '0.5';
+                contentElement.style.pointerEvents = 'none';
+            } else {
+                loadingElement.style.display = 'none';
+                contentElement.style.opacity = '1';
+                contentElement.style.pointerEvents = 'auto';
+            }
+        }
     }
 }
 
-// Initialize admin dashboard
+// Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    if (window.auth.isAuthenticated() && window.auth.isAdmin()) {
-        window.adminDashboard = new AdminDashboard();
-        
-        // Load Chart.js library if not already loaded
-        if (typeof Chart === 'undefined') {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-            script.onload = () => {
-                window.adminDashboard.initCharts();
-            };
-            document.head.appendChild(script);
+    if (window.auth && window.auth.isAuthenticated && window.auth.isAuthenticated()) {
+        if (window.auth.isAdmin && window.auth.isAdmin()) {
+            window.adminDashboard = new AdminDashboard();
+        } else {
+            window.location.href = 'index.html';
+            alert('Access denied. Admin privileges required.');
         }
-        
-        // Close modal handlers
-        document.querySelectorAll('.modal .close').forEach(closeBtn => {
-            closeBtn.addEventListener('click', function() {
-                this.closest('.modal').classList.remove('show');
-            });
-        });
-        
-        // Close modal on outside click
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('show');
-                }
-            });
-        });
     } else {
         window.location.href = 'login.html';
     }
 });
+
+// Make functions globally accessible
+window.showBillDetails = (billId) => {
+    if (window.adminDashboard) {
+        window.adminDashboard.showBillDetails(billId);
+    }
+};
+
+window.saveRate = (metalType, purity, rateId) => {
+    if (window.adminDashboard) {
+        window.adminDashboard.saveRate(metalType, purity, rateId);
+    }
+};
+
+window.editUser = (userId) => {
+    if (window.adminDashboard) {
+        window.adminDashboard.editUser(userId);
+    }
+};
+
+window.deleteUser = (userId) => {
+    if (window.adminDashboard) {
+        window.adminDashboard.deleteUser(userId);
+    }
+};
