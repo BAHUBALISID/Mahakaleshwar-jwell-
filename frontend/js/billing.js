@@ -1,475 +1,444 @@
+// frontend/js/billing.js
+/**
+ * Billing System - Collects ALL 15+ fields and sends to backend
+ * STRICTLY FOLLOWS BUSINESS RULES
+ */
+
 class BillingSystem {
     constructor() {
         this.apiBase = 'http://localhost:5000/api';
         this.token = window.auth.getToken();
-        this.currentBill = {
-            customer: {
-                name: '',
-                mobile: '',
-                address: '',
-                dob: '',
-                pan: '',
-                aadhaar: ''
-            },
-            items: [],
-            exchangeItems: [],
-            discount: 0,
-            paymentMode: 'cash',
-            isIntraState: true,
-            gstOnMetal: 3,
-            gstOnMaking: 5
+        
+        // Initialize with empty arrays for all items
+        this.items = []; // New items for purchase
+        this.exchangeItems = []; // Exchange items
+        this.currentItemId = 1;
+        this.currentExchangeId = 1;
+        
+        // Customer data
+        this.customer = {
+            name: '',
+            mobile: '',
+            address: '',
+            dob: '',
+            pan: '',
+            aadhaar: ''
         };
-        this.rates = {};
-        this.metalPurities = {
-            'Gold': ['22K', '18K', '14K', '24K', '916', '750', '585'],
-            'Silver': ['925', '999', '830', '900'],
-            'Diamond': ['SI1', 'VS1', 'VVS1', 'IF', 'FL', 'I1', 'I2', 'I3'],
-            'Platinum': ['950', '900', '850', '999'],
-            'Antique / Polki': ['Traditional', 'Polki', 'Kundan', 'Meenakari'],
-            'Others': ['Standard']
-        };
+        
         this.init();
     }
 
     async init() {
-        await this.loadRates();
         this.setupEventListeners();
-        this.setupCustomerFormListeners();
-        this.updateSummary();
-    }
-
-    showAlert(type, message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type}`;
-        alertDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>${message}</span>
-                <button onclick="this.parentElement.parentElement.remove()" 
-                        style="background: none; border: none; font-size: 20px; cursor: pointer; color: inherit;">
-                    &times;
-                </button>
-            </div>
-        `;
-        
-        const container = document.getElementById('alertContainer');
-        container.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            if (alertDiv.parentElement) {
-                alertDiv.remove();
-            }
-        }, 5000);
-    }
-
-    async loadRates() {
-        try {
-            const response = await fetch(`${this.apiBase}/rates`);
-            const data = await response.json();
-            
-            if (data.success) {
-                this.rates = data.rates.reduce((acc, rate) => {
-                    acc[rate.metalType] = {
-                        ...rate,
-                        purityLevels: rate.purityLevels || this.metalPurities[rate.metalType] || ['Standard']
-                    };
-                    return acc;
-                }, {});
-                
-                console.log('Rates loaded with purity levels:', this.rates);
-            } else {
-                // Use default rates with purity levels
-                this.rates = {
-                    'Gold': { 
-                        rate: 600000, 
-                        unit: 'kg', 
-                        gstRate: 3, 
-                        gstOnMaking: 5, 
-                        purityLevels: this.metalPurities['Gold'] 
-                    },
-                    'Silver': { 
-                        rate: 80000, 
-                        unit: 'kg', 
-                        gstRate: 3, 
-                        gstOnMaking: 5, 
-                        purityLevels: this.metalPurities['Silver'] 
-                    },
-                    'Diamond': { 
-                        rate: 50000, 
-                        unit: 'carat', 
-                        gstRate: 3, 
-                        gstOnMaking: 5, 
-                        purityLevels: this.metalPurities['Diamond'] 
-                    },
-                    'Platinum': { 
-                        rate: 400000, 
-                        unit: 'kg', 
-                        gstRate: 3, 
-                        gstOnMaking: 5, 
-                        purityLevels: this.metalPurities['Platinum'] 
-                    },
-                    'Antique / Polki': { 
-                        rate: 300000, 
-                        unit: 'kg', 
-                        gstRate: 3, 
-                        gstOnMaking: 5, 
-                        purityLevels: this.metalPurities['Antique / Polki'] 
-                    },
-                    'Others': { 
-                        rate: 100000, 
-                        unit: 'kg', 
-                        gstRate: 3, 
-                        gstOnMaking: 5, 
-                        purityLevels: this.metalPurities['Others'] 
-                    }
-                };
-            }
-        } catch (error) {
-            console.error('Error loading rates:', error);
-            // Fallback to default rates with purity levels
-            this.rates = {
-                'Gold': { 
-                    rate: 600000, 
-                    unit: 'kg', 
-                    gstRate: 3, 
-                    gstOnMaking: 5, 
-                    purityLevels: this.metalPurities['Gold'] 
-                },
-                'Silver': { 
-                    rate: 80000, 
-                    unit: 'kg', 
-                    gstRate: 3, 
-                    gstOnMaking: 5, 
-                    purityLevels: this.metalPurities['Silver'] 
-                }
-            };
-        }
+        this.addNewItem(); // Start with one empty item
+        this.loadDefaultRates();
     }
 
     setupEventListeners() {
-    // GST Type
-    document.getElementById('gstType').addEventListener('change', (e) => {
-        this.currentBill.isIntraState = e.target.value === 'intra';
-        this.updateSummary();
-    });
+        // Customer form listeners
+        document.getElementById('customerName')?.addEventListener('change', (e) => {
+            this.customer.name = e.target.value;
+        });
+        document.getElementById('customerMobile')?.addEventListener('change', (e) => {
+            this.customer.mobile = e.target.value;
+        });
+        document.getElementById('customerAddress')?.addEventListener('change', (e) => {
+            this.customer.address = e.target.value;
+        });
+        document.getElementById('customerDOB')?.addEventListener('change', (e) => {
+            this.customer.dob = e.target.value;
+        });
+        document.getElementById('customerPAN')?.addEventListener('change', (e) => {
+            this.customer.pan = e.target.value;
+        });
+        document.getElementById('customerAadhaar')?.addEventListener('change', (e) => {
+            this.customer.aadhaar = e.target.value;
+        });
 
-    // Payment Mode
-    document.getElementById('paymentMode').addEventListener('change', (e) => {
-        this.currentBill.paymentMode = e.target.value;
-    });
+        // Add item button
+        document.getElementById('addItemBtn')?.addEventListener('click', () => {
+            this.addNewItem();
+        });
 
-    // Discount
-    document.getElementById('discount').addEventListener('input', (e) => {
-        this.currentBill.discount = parseFloat(e.target.value) || 0;
-        this.updateSummary();
-    });
+        // Add exchange button
+        document.getElementById('addExchangeBtn')?.addEventListener('click', () => {
+            this.addExchangeItem();
+        });
 
-    // Add Item Button - FIXED: Remove any existing listeners first
-    const addItemBtn = document.getElementById('addItemBtn');
-    addItemBtn.replaceWith(addItemBtn.cloneNode(true));
-    document.getElementById('addItemBtn').addEventListener('click', () => {
-        this.addItemRow(false);
-    });
+        // Generate bill button
+        document.getElementById('generateBillBtn')?.addEventListener('click', () => {
+            this.generateBill();
+        });
 
-    // Add Exchange Button - FIXED: Remove any existing listeners first
-    const addExchangeBtn = document.getElementById('addExchangeBtn');
-    addExchangeBtn.replaceWith(addExchangeBtn.cloneNode(true));
-    document.getElementById('addExchangeBtn').addEventListener('click', () => {
-        this.addItemRow(true);
-    });
+        // Print bill button
+        document.getElementById('printBillBtn')?.addEventListener('click', () => {
+            this.printBill();
+        });
 
-    // Generate Bill Button
-    const generateBillBtn = document.getElementById('generateBillBtn');
-    generateBillBtn.replaceWith(generateBillBtn.cloneNode(true));
-    document.getElementById('generateBillBtn').addEventListener('click', () => {
-        this.generateBill();
-    });
+        // Discount input
+        document.getElementById('discount')?.addEventListener('change', (e) => {
+            this.updateBillSummary();
+        });
 
-    // Print Bill Button
-    const printBillBtn = document.getElementById('printBillBtn');
-    printBillBtn.replaceWith(printBillBtn.cloneNode(true));
-    document.getElementById('printBillBtn').addEventListener('click', () => {
-        this.printBill();
-    });
+        // GST type change
+        document.getElementById('gstType')?.addEventListener('change', (e) => {
+            this.updateBillSummary();
+        });
 
-    // Make mobile dropdowns visible
-    this.fixDropdowns();
-    }
+        // Payment mode change
+        document.getElementById('paymentMode')?.addEventListener('change', (e) => {
+            this.updateBillSummary();
+        });
 
-    setupCustomerFormListeners() {
-        const customerFields = {
-            'customerName': 'name',
-            'customerMobile': 'mobile',
-            'customerAddress': 'address',
-            'customerDOB': 'dob',
-            'customerPAN': 'pan',
-            'customerAadhaar': 'aadhaar'
-        };
-
-        Object.entries(customerFields).forEach(([elementId, field]) => {
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.addEventListener('input', (e) => {
-                    this.currentBill.customer[field] = e.target.value;
-                    console.log(`Customer ${field} updated to:`, e.target.value);
-                });
-                
-                element.addEventListener('change', (e) => {
-                    this.currentBill.customer[field] = e.target.value;
-                    console.log(`Customer ${field} changed to:`, e.target.value);
-                });
+        // Clear form button
+        document.querySelectorAll('.btn-outline').forEach(btn => {
+            if (btn.textContent.includes('Clear')) {
+                btn.addEventListener('click', () => this.clearForm());
             }
         });
     }
 
-    fixDropdowns() {
-        const style = document.createElement('style');
-        style.textContent = `
-            select {
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                position: relative !important;
-                z-index: 1 !important;
-                background-color: white !important;
-            }
-            
-            @media screen and (-webkit-min-device-pixel-ratio:0) {
-                select, input, textarea {
-                    font-size: 16px !important;
-                }
-            }
-            
-            select, input, button {
-                min-height: 44px !important;
-            }
-            
-            .item-row select {
-                width: 100% !important;
-                margin: 5px 0 !important;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    updateCustomer(field, value) {
-        this.currentBill.customer[field] = value;
-        console.log(`Customer ${field} updated to:`, value);
-    }
-
-    updateDiscount(value) {
-        this.currentBill.discount = parseFloat(value) || 0;
-        this.updateSummary();
-    }
-
-    addItemRow(isExchange = false) {
-        const containerId = isExchange ? 'exchangeItems' : 'itemsContainer';
-        const container = document.getElementById(containerId);
-        const itemId = 'item-' + Date.now() + Math.floor(Math.random() * 1000);
+    addNewItem() {
+        const container = document.getElementById('itemsContainer');
+        const itemId = `item-${this.currentItemId++}`;
         
-        // Remove placeholder if it exists
+        // Remove initial placeholder if present
         const placeholder = container.querySelector('.text-center.text-muted');
-        if (placeholder) {
-            placeholder.remove();
-        }
+        if (placeholder) placeholder.remove();
         
         const itemRow = document.createElement('div');
         itemRow.className = 'item-row';
-        if (isExchange) itemRow.classList.add('exchange-row');
         itemRow.id = itemId;
         
-        const metalOptions = Object.keys(this.rates).map(metal => 
-            `<option value="${metal}">${metal}</option>`
-        ).join('');
-        
-        if (isExchange) {
-            itemRow.innerHTML = `
-                <div>
-                    <input type="text" class="form-control" placeholder="Description (optional)" 
-                           oninput="window.billingSystem.handleItemInput('${itemId}', 'description', this.value, true)">
-                </div>
-                <div>
-                    <select class="form-control metal-type" 
-                            onchange="window.billingSystem.handleMetalChange('${itemId}', this.value, true)">
-                        <option value="">Select Metal *</option>
-                        ${metalOptions}
-                    </select>
-                </div>
-                <div>
-                    <select class="form-control purity" 
-                            onchange="window.billingSystem.handleItemInput('${itemId}', 'purity', this.value, true)">
-                        <option value="">Select Purity *</option>
-                    </select>
-                </div>
-                <div>
-                    <input type="number" class="form-control" step="0.001" placeholder="Weight *" 
-                           oninput="window.billingSystem.handleItemInput('${itemId}', 'weight', this.value, true)">
-                </div>
-                <div>
-                    <input type="number" class="form-control" step="0.1" placeholder="Wastage % (optional)" 
-                           oninput="window.billingSystem.handleItemInput('${itemId}', 'wastageDeduction', this.value, true)">
-                </div>
-                <div>
-                    <input type="number" class="form-control" step="0.01" placeholder="Melting Charges (optional)" 
-                           oninput="window.billingSystem.handleItemInput('${itemId}', 'meltingCharges', this.value, true)">
-                </div>
-                <div>
-                    <button class="btn btn-danger btn-sm" type="button"
-                            onclick="window.billingSystem.removeItem('${itemId}', true)">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            `;
+        // Create ALL 15+ fields as per BUSINESS RULES
+        itemRow.innerHTML = `
+            <!-- Product -->
+            <input type="text" class="form-control item-product" placeholder="Product" 
+                   onchange="window.billingSystem.updateItem('${itemId}', 'product', this.value)">
             
-            this.currentBill.exchangeItems.push({
-                id: itemId,
-                description: '',
-                metalType: '',
-                purity: '',
-                weight: 0,
-                wastageDeduction: 0,
-                meltingCharges: 0
-            });
+            <!-- Unit -->
+            <input type="text" class="form-control item-unit" placeholder="Unit (PCS/Set)" 
+                   onchange="window.billingSystem.updateItem('${itemId}', 'unit', this.value)">
             
-            document.getElementById('exchangeSection').style.display = 'block';
-        } else {
-            itemRow.innerHTML = `
-                <div>
-                    <input type="text" class="form-control" placeholder="Description (optional)" 
-                           oninput="window.billingSystem.handleItemInput('${itemId}', 'description', this.value, false)">
-                </div>
-                <div>
-                    <select class="form-control metal-type" 
-                            onchange="window.billingSystem.handleMetalChange('${itemId}', this.value, false)">
-                        <option value="">Select Metal *</option>
-                        ${metalOptions}
-                    </select>
-                </div>
-                <div>
-                    <select class="form-control purity" 
-                            onchange="window.billingSystem.handleItemInput('${itemId}', 'purity', this.value, false)">
-                        <option value="">Select Purity *</option>
-                    </select>
-                </div>
-                <div>
-                    <input type="number" class="form-control" step="0.001" placeholder="Weight (g) *" 
-                           oninput="window.billingSystem.handleItemInput('${itemId}', 'weight', this.value, false)">
-                </div>
-                <div>
-                    <input type="number" class="form-control" step="0.01" placeholder="Making Charges *" 
-                           oninput="window.billingSystem.handleItemInput('${itemId}', 'makingCharges', this.value, false)">
-                </div>
-                <div>
-                    <select class="form-control making-charges-type" 
-                            onchange="window.billingSystem.handleItemInput('${itemId}', 'makingChargesType', this.value, false)">
-                        <option value="percentage">%</option>
-                        <option value="fixed">₹ Fixed</option>
-                    </select>
-                </div>
-                <div>
-                    <button class="btn btn-danger btn-sm" type="button"
-                            onclick="window.billingSystem.removeItem('${itemId}', false)">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            `;
+            <!-- Num -->
+            <input type="text" class="form-control item-num" placeholder="Num" 
+                   onchange="window.billingSystem.updateItem('${itemId}', 'num', this.value)">
             
-            this.currentBill.items.push({
-                id: itemId,
-                description: '',
-                metalType: '',
-                purity: '',
-                weight: 0,
-                makingCharges: 0,
-                makingChargesType: 'percentage'
-            });
-        }
+            <!-- Stmp -->
+            <input type="text" class="form-control item-stmp" placeholder="Stmp" 
+                   onchange="window.billingSystem.updateItem('${itemId}', 'stmp', this.value)">
+            
+            <!-- Qty -->
+            <input type="number" class="form-control item-qty" placeholder="Qty" value="1" min="1"
+                   onchange="window.billingSystem.updateItem('${itemId}', 'qty', this.value); window.billingSystem.calculateNetWeight('${itemId}')">
+            
+            <!-- Gr.Wt -->
+            <input type="number" class="form-control item-grWt" placeholder="Gr.Wt" step="0.001" min="0"
+                   onchange="window.billingSystem.calculateNetWeight('${itemId}')">
+            
+            <!-- Less -->
+            <input type="number" class="form-control item-less" placeholder="Less" step="0.001" min="0"
+                   onchange="window.billingSystem.calculateNetWeight('${itemId}')">
+            
+            <!-- Nt.Wt (calculated, but user can edit) -->
+            <input type="number" class="form-control item-ntWt" placeholder="Nt.Wt" step="0.001" min="0"
+                   onchange="window.billingSystem.updateItem('${itemId}', 'ntWt', this.value)" readonly>
+            
+            <!-- Tnch(%) -->
+            <input type="text" class="form-control item-tnch" placeholder="Tnch(%)" 
+                   onchange="window.billingSystem.updateItem('${itemId}', 'tnch', this.value)">
+            
+            <!-- Huid -->
+            <input type="text" class="form-control item-huid" placeholder="HUID" 
+                   onchange="window.billingSystem.updateItem('${itemId}', 'huid', this.value)">
+            
+            <!-- HuCrg -->
+            <input type="number" class="form-control item-huCrg" placeholder="HuCrg" step="0.01" min="0"
+                   onchange="window.billingSystem.updateItem('${itemId}', 'huCrg', this.value)">
+            
+            <!-- Mk (Making Type) -->
+            <select class="form-control item-mk" onchange="window.billingSystem.updateItem('${itemId}', 'mk', this.value)">
+                <option value="FIX">FIX</option>
+                <option value="%">%</option>
+                <option value="GRM">GRM</option>
+            </select>
+            
+            <!-- MkCrg -->
+            <input type="number" class="form-control item-mkCrg" placeholder="MkCrg" step="0.01" min="0"
+                   onchange="window.billingSystem.updateItem('${itemId}', 'mkCrg', this.value)">
+            
+            <!-- Rate -->
+            <input type="number" class="form-control item-rate" placeholder="Rate" step="0.01" min="0"
+                   onchange="window.billingSystem.updateItem('${itemId}', 'rate', this.value)">
+            
+            <!-- DisMk% -->
+            <input type="number" class="form-control item-disMk" placeholder="DisMk%" step="0.01" min="0" max="100"
+                   onchange="window.billingSystem.updateItem('${itemId}', 'disMk', this.value)">
+            
+            <!-- Metal Type -->
+            <select class="form-control item-metal" onchange="window.billingSystem.updateItem('${itemId}', 'metalType', this.value)">
+                <option value="">Select Metal</option>
+                <option value="Gold">Gold</option>
+                <option value="Silver">Silver</option>
+                <option value="Diamond">Diamond</option>
+                <option value="Platinum">Platinum</option>
+                <option value="Antique / Polki">Antique / Polki</option>
+                <option value="Others">Others</option>
+            </select>
+            
+            <!-- Purity -->
+            <input type="text" class="form-control item-purity" placeholder="Purity (e.g., 22K)"
+                   onchange="window.billingSystem.updateItem('${itemId}', 'purity', this.value)">
+            
+            <!-- Delete button -->
+            <button class="btn btn-danger btn-sm" onclick="window.billingSystem.removeItem('${itemId}')">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
         
         container.appendChild(itemRow);
+        
+        // Initialize item object with ALL fields
+        this.items.push({
+            id: itemId,
+            product: '',
+            unit: '',
+            num: '',
+            stmp: '',
+            qty: 1,
+            grWt: 0,
+            less: 0,
+            ntWt: 0,
+            tnch: '',
+            huid: '',
+            huCrg: 0,
+            mk: 'FIX',
+            mkCrg: 0,
+            rate: 0,
+            disMk: 0,
+            metalType: '',
+            purity: '',
+            isExchange: false
+        });
+        
         this.updateResponsiveLayout();
     }
 
-    handleMetalChange(itemId, metalType, isExchange) {
-        console.log('Metal changed:', metalType, 'for item:', itemId);
+    addExchangeItem() {
+        const container = document.getElementById('exchangeItems');
+        const itemId = `exchange-${this.currentExchangeId++}`;
         
-        const item = isExchange ? 
-            this.currentBill.exchangeItems.find(i => i.id === itemId) :
-            this.currentBill.items.find(i => i.id === itemId);
+        // Show exchange section if hidden
+        document.getElementById('exchangeSection').style.display = 'block';
         
-        if (item) {
-            item.metalType = metalType;
+        const itemRow = document.createElement('div');
+        itemRow.className = 'item-row exchange-row';
+        itemRow.id = itemId;
+        
+        itemRow.innerHTML = `
+            <!-- Old Product -->
+            <input type="text" class="form-control exchange-product" placeholder="Old Product" 
+                   onchange="window.billingSystem.updateExchangeItem('${itemId}', 'product', this.value)">
             
-            // Update purity dropdown
-            const puritySelect = document.querySelector(`#${itemId} .purity`);
-            if (puritySelect) {
-                let purities = [];
-                if (this.rates[metalType] && this.rates[metalType].purityLevels) {
-                    purities = this.rates[metalType].purityLevels;
-                } else if (this.metalPurities[metalType]) {
-                    purities = this.metalPurities[metalType];
-                } else {
-                    purities = ['Standard'];
-                }
-                
-                console.log('Setting purity options:', purities);
-                
-                puritySelect.innerHTML = '<option value="">Select Purity *</option>' + 
-                    purities.map(purity => `<option value="${purity}">${purity}</option>`).join('');
-                
-                if (purities.length > 0) {
-                    item.purity = purities[0];
-                    puritySelect.value = purities[0];
-                }
-            }
+            <!-- Metal Type -->
+            <select class="form-control exchange-metal" onchange="window.billingSystem.updateExchangeItem('${itemId}', 'metalType', this.value)">
+                <option value="">Select Metal</option>
+                <option value="Gold">Gold</option>
+                <option value="Silver">Silver</option>
+                <option value="Diamond">Diamond</option>
+                <option value="Platinum">Platinum</option>
+                <option value="Antique / Polki">Antique / Polki</option>
+                <option value="Others">Others</option>
+            </select>
             
-            this.updateSummary();
-        }
+            <!-- Purity -->
+            <input type="text" class="form-control exchange-purity" placeholder="Purity" 
+                   onchange="window.billingSystem.updateExchangeItem('${itemId}', 'purity', this.value)">
+            
+            <!-- Qty -->
+            <input type="number" class="form-control exchange-qty" placeholder="Qty" value="1" min="1"
+                   onchange="window.billingSystem.updateExchangeItem('${itemId}', 'qty', this.value); window.billingSystem.calculateExchangeNetWeight('${itemId}')">
+            
+            <!-- Gr.Wt -->
+            <input type="number" class="form-control exchange-grWt" placeholder="Gr.Wt" step="0.001" min="0"
+                   onchange="window.billingSystem.calculateExchangeNetWeight('${itemId}')">
+            
+            <!-- Less -->
+            <input type="number" class="form-control exchange-less" placeholder="Less" step="0.001" min="0"
+                   onchange="window.billingSystem.calculateExchangeNetWeight('${itemId}')">
+            
+            <!-- Nt.Wt -->
+            <input type="number" class="form-control exchange-ntWt" placeholder="Nt.Wt" step="0.001" min="0" readonly
+                   onchange="window.billingSystem.updateExchangeItem('${itemId}', 'ntWt', this.value)">
+            
+            <!-- Wastage % -->
+            <input type="number" class="form-control exchange-wastage" placeholder="Wastage %" step="0.01" min="0" max="100"
+                   onchange="window.billingSystem.updateExchangeItem('${itemId}', 'wastage', this.value)">
+            
+            <!-- Melting Charges -->
+            <input type="number" class="form-control exchange-melting" placeholder="Melting Charges" step="0.01" min="0"
+                   onchange="window.billingSystem.updateExchangeItem('${itemId}', 'meltingCharges', this.value)">
+            
+            <!-- Current Rate -->
+            <input type="number" class="form-control exchange-rate" placeholder="Current Rate" step="0.01" min="0"
+                   onchange="window.billingSystem.updateExchangeItem('${itemId}', 'rate', this.value)">
+            
+            <!-- Delete button -->
+            <button class="btn btn-danger btn-sm" onclick="window.billingSystem.removeExchangeItem('${itemId}')">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        container.appendChild(itemRow);
+        
+        // Initialize exchange item object
+        this.exchangeItems.push({
+            id: itemId,
+            product: '',
+            metalType: '',
+            purity: '',
+            qty: 1,
+            grWt: 0,
+            less: 0,
+            ntWt: 0,
+            wastage: 0,
+            meltingCharges: 0,
+            rate: 0,
+            isExchange: true
+        });
+        
+        this.updateResponsiveLayout();
     }
 
-    handleItemInput(itemId, field, value, isExchange) {
-        const item = isExchange ? 
-            this.currentBill.exchangeItems.find(i => i.id === itemId) :
-            this.currentBill.items.find(i => i.id === itemId);
+    calculateNetWeight(itemId) {
+        const row = document.getElementById(itemId);
+        if (!row) return;
         
-        if (item) {
-            if (['weight', 'makingCharges', 'wastageDeduction', 'meltingCharges'].includes(field)) {
-                item[field] = parseFloat(value) || 0;
+        const grWt = parseFloat(row.querySelector('.item-grWt').value) || 0;
+        const less = parseFloat(row.querySelector('.item-less').value) || 0;
+        
+        // Calculate net weight (Gr.Wt - Less)
+        const ntWt = Math.max(0, grWt - less);
+        
+        // Update the net weight field
+        const ntWtInput = row.querySelector('.item-ntWt');
+        ntWtInput.value = ntWt.toFixed(3);
+        
+        // Update item object
+        const itemIndex = this.items.findIndex(item => item.id === itemId);
+        if (itemIndex !== -1) {
+            this.items[itemIndex].grWt = grWt;
+            this.items[itemIndex].less = less;
+            this.items[itemIndex].ntWt = ntWt;
+        }
+        
+        this.updateBillSummary();
+    }
+
+    calculateExchangeNetWeight(itemId) {
+        const row = document.getElementById(itemId);
+        if (!row) return;
+        
+        const grWt = parseFloat(row.querySelector('.exchange-grWt').value) || 0;
+        const less = parseFloat(row.querySelector('.exchange-less').value) || 0;
+        
+        // Calculate net weight (Gr.Wt - Less)
+        const ntWt = Math.max(0, grWt - less);
+        
+        // Update the net weight field
+        const ntWtInput = row.querySelector('.exchange-ntWt');
+        ntWtInput.value = ntWt.toFixed(3);
+        
+        // Update exchange item object
+        const itemIndex = this.exchangeItems.findIndex(item => item.id === itemId);
+        if (itemIndex !== -1) {
+            this.exchangeItems[itemIndex].grWt = grWt;
+            this.exchangeItems[itemIndex].less = less;
+            this.exchangeItems[itemIndex].ntWt = ntWt;
+        }
+        
+        this.updateBillSummary();
+    }
+
+    updateItem(itemId, field, value) {
+        const itemIndex = this.items.findIndex(item => item.id === itemId);
+        if (itemIndex !== -1) {
+            // Convert numeric fields
+            if (['qty', 'grWt', 'less', 'ntWt', 'huCrg', 'mkCrg', 'rate', 'disMk'].includes(field)) {
+                this.items[itemIndex][field] = parseFloat(value) || 0;
             } else {
-                item[field] = value;
+                this.items[itemIndex][field] = value;
             }
             
-            this.updateSummary();
+            // If purity is being set for Gold, auto-set tnch if empty
+            if (field === 'purity' && this.items[itemIndex].metalType === 'Gold') {
+                const purity = value;
+                const tnchMap = {
+                    '24K': '99.9%',
+                    '22K': '91.6%',
+                    '18K': '75.0%',
+                    '14K': '58.3%',
+                    '916': '91.6%',
+                    '750': '75.0%',
+                    '585': '58.5%'
+                };
+                if (tnchMap[purity] && !this.items[itemIndex].tnch) {
+                    this.items[itemIndex].tnch = tnchMap[purity];
+                    const row = document.getElementById(itemId);
+                    if (row) {
+                        const tnchInput = row.querySelector('.item-tnch');
+                        if (tnchInput) tnchInput.value = tnchMap[purity];
+                    }
+                }
+            }
+            
+            this.updateBillSummary();
         }
     }
 
-    removeItem(itemId, isExchange) {
-        if (isExchange) {
-            this.currentBill.exchangeItems = this.currentBill.exchangeItems.filter(
-                item => item.id !== itemId
-            );
-            
-            if (this.currentBill.exchangeItems.length === 0) {
-                document.getElementById('exchangeSection').style.display = 'none';
+    updateExchangeItem(itemId, field, value) {
+        const itemIndex = this.exchangeItems.findIndex(item => item.id === itemId);
+        if (itemIndex !== -1) {
+            // Convert numeric fields
+            if (['qty', 'grWt', 'less', 'ntWt', 'wastage', 'meltingCharges', 'rate'].includes(field)) {
+                this.exchangeItems[itemIndex][field] = parseFloat(value) || 0;
+            } else {
+                this.exchangeItems[itemIndex][field] = value;
             }
-        } else {
-            this.currentBill.items = this.currentBill.items.filter(
-                item => item.id !== itemId
-            );
-            
-            const itemsContainer = document.getElementById('itemsContainer');
-            if (this.currentBill.items.length === 0 && itemsContainer) {
-                itemsContainer.innerHTML = `
-                    <div class="text-center text-muted" style="padding: 20px;">
-                        <i class="fas fa-plus-circle fa-2x" style="margin-bottom: 10px;"></i>
-                        <p>Click "Add Item" to start adding jewellery items</p>
-                    </div>
-                `;
-            }
+            this.updateBillSummary();
         }
-        
+    }
+
+    removeItem(itemId) {
+        this.items = this.items.filter(item => item.id !== itemId);
         const element = document.getElementById(itemId);
         if (element) element.remove();
         
-        this.updateSummary();
+        // Show placeholder if no items left
+        if (this.items.length === 0) {
+            const container = document.getElementById('itemsContainer');
+            container.innerHTML = `
+                <div class="text-center text-muted" style="padding: 20px;">
+                    <i class="fas fa-plus-circle fa-2x" style="margin-bottom: 10px;"></i>
+                    <p>Click "Add Item" to start adding jewellery items</p>
+                </div>
+            `;
+        }
+        
+        this.updateBillSummary();
+    }
+
+    removeExchangeItem(itemId) {
+        this.exchangeItems = this.exchangeItems.filter(item => item.id !== itemId);
+        const element = document.getElementById(itemId);
+        if (element) element.remove();
+        
+        // Hide exchange section if no exchange items
+        if (this.exchangeItems.length === 0) {
+            document.getElementById('exchangeSection').style.display = 'none';
+        }
+        
+        this.updateBillSummary();
     }
 
     updateResponsiveLayout() {
@@ -479,188 +448,162 @@ class BillingSystem {
         itemRows.forEach(row => {
             if (screenWidth < 768) {
                 row.style.gridTemplateColumns = '1fr';
-            } else if (screenWidth < 1024) {
+            } else if (screenWidth < 1200) {
                 if (row.classList.contains('exchange-row')) {
                     row.style.gridTemplateColumns = 'repeat(3, 1fr)';
                 } else {
-                    row.style.gridTemplateColumns = 'repeat(2, 1fr)';
+                    row.style.gridTemplateColumns = 'repeat(4, 1fr)';
                 }
             } else {
                 if (row.classList.contains('exchange-row')) {
                     row.style.gridTemplateColumns = '2fr 1fr 1fr 1fr 1fr 1fr 1fr auto';
                 } else {
-                    row.style.gridTemplateColumns = '2fr 1fr 1fr 1fr 1fr 1fr auto';
+                    row.style.gridTemplateColumns = '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr auto';
                 }
             }
         });
     }
 
-    async updateSummary() {
+    async loadDefaultRates() {
         try {
-            let metalValue = 0;
-            let makingCharges = 0;
-            let gstOnMetal = 0;
-            let gstOnMaking = 0;
-            let subTotal = 0;
-            let exchangeValue = 0;
-            
-            const itemsHtml = [];
-            const exchangeHtml = [];
-            
-            // Calculate new items
-            for (const item of this.currentBill.items) {
-                if (item.metalType && item.weight > 0) {
-                    const rate = this.rates[item.metalType];
-                    if (!rate) continue;
-                    
-                    let perGramRate = rate.rate;
-                    if (rate.unit === 'kg') {
-                        perGramRate = rate.rate / 1000;
-                    }
-                    
-                    let itemMetalValue = perGramRate * item.weight;
-                    
-                    let itemMakingCharges = 0;
-                    if (item.makingChargesType === 'percentage') {
-                        itemMakingCharges = (itemMetalValue * item.makingCharges) / 100;
-                    } else {
-                        itemMakingCharges = item.makingCharges;
-                    }
-                    
-                    const itemGstOnMetal = (itemMetalValue * this.currentBill.gstOnMetal) / 100;
-                    const itemGstOnMaking = (itemMakingCharges * this.currentBill.gstOnMaking) / 100;
-                    
-                    const itemTotal = itemMetalValue + itemMakingCharges + itemGstOnMetal + itemGstOnMaking;
-                    
-                    metalValue += itemMetalValue;
-                    makingCharges += itemMakingCharges;
-                    gstOnMetal += itemGstOnMetal;
-                    gstOnMaking += itemGstOnMaking;
-                    subTotal += itemTotal;
-                    
-                    itemsHtml.push(`
-                        <tr>
-                            <td>${item.description || 'Item'}</td>
-                            <td>${item.metalType} ${item.purity || ''}</td>
-                            <td>${item.weight.toFixed(3)} ${rate.unit === 'kg' ? 'g' : rate.unit === 'carat' ? 'ct' : ''}</td>
-                            <td>₹${itemTotal.toFixed(2)}</td>
-                        </tr>
-                    `);
-                }
-            }
-            
-            // Calculate exchange items
-            for (const item of this.currentBill.exchangeItems) {
-                if (item.metalType && item.weight > 0) {
-                    const rate = this.rates[item.metalType];
-                    if (!rate) continue;
-                    
-                    let perGramRate = rate.rate;
-                    if (rate.unit === 'kg') {
-                        perGramRate = rate.rate / 1000;
-                    }
-                    
-                    let itemValue = perGramRate * item.weight;
-                    
-                    if (item.wastageDeduction > 0) {
-                        itemValue = itemValue * ((100 - item.wastageDeduction) / 100);
-                    }
-                    
-                    if (item.meltingCharges > 0) {
-                        itemValue -= item.meltingCharges;
-                    }
-                    
-                    exchangeValue += Math.max(0, itemValue);
-                    
-                    exchangeHtml.push(`
-                        <tr>
-                            <td>${item.description || 'Old Item'}</td>
-                            <td>${item.metalType} ${item.purity || ''}</td>
-                            <td>${item.weight.toFixed(3)} ${rate.unit === 'kg' ? 'g' : rate.unit === 'carat' ? 'ct' : ''}</td>
-                            <td>₹${itemValue.toFixed(2)}</td>
-                        </tr>
-                    `);
-                }
-            }
-            
-            // Calculate totals
-            const discount = this.currentBill.discount || 0;
-            const totalBeforeGST = metalValue + makingCharges - discount;
-            const grandTotal = totalBeforeGST + gstOnMetal + gstOnMaking;
-            
-            // Update display
-            document.getElementById('metalValue').textContent = `₹${metalValue.toFixed(2)}`;
-            document.getElementById('makingCharges').textContent = `₹${makingCharges.toFixed(2)}`;
-            document.getElementById('subTotal').textContent = `₹${(metalValue + makingCharges).toFixed(2)}`;
-            document.getElementById('gstMetal').textContent = `₹${gstOnMetal.toFixed(2)}`;
-            document.getElementById('gstMaking').textContent = `₹${gstOnMaking.toFixed(2)}`;
-            document.getElementById('grandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
-            
-            // Update items list
-            const itemsList = document.getElementById('itemsList');
-            if (itemsHtml.length > 0) {
-                itemsList.innerHTML = itemsHtml.join('');
-            } else {
-                itemsList.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No items added</td></tr>';
-            }
-            
-            // Update exchange section
-            const exchangeSection = document.getElementById('exchangeItemsSection');
-            const exchangeSummary = document.getElementById('exchangeSummary');
-            
-            if (exchangeValue > 0) {
-                exchangeSection.style.display = 'block';
-                exchangeSummary.style.display = 'block';
-                
-                document.getElementById('exchangeValue').textContent = `₹${exchangeValue.toFixed(2)}`;
-                
-                const exchangeList = document.getElementById('exchangeItemsList');
-                exchangeList.innerHTML = exchangeHtml.join('');
-                
-                const balance = exchangeValue - grandTotal;
-                if (balance >= 0) {
-                    document.getElementById('balanceRefund').textContent = `₹${balance.toFixed(2)}`;
-                    document.getElementById('balancePay').textContent = '₹0.00';
-                } else {
-                    document.getElementById('balancePay').textContent = `₹${Math.abs(balance).toFixed(2)}`;
-                    document.getElementById('balanceRefund').textContent = '₹0.00';
-                }
-            } else {
-                exchangeSection.style.display = 'none';
-                exchangeSummary.style.display = 'none';
-            }
-            
-            // Update amount in words
-            const amountInWords = await this.getAmountInWords(grandTotal);
-            document.getElementById('amountInWords').textContent = amountInWords;
-            
-        } catch (error) {
-            console.error('Update summary error:', error);
-        }
-    }
-
-    async getAmountInWords(amount) {
-        try {
-            const response = await fetch(`${this.apiBase}/utils/amount-words`, {
-                method: 'POST',
+            const response = await fetch(`${this.apiBase}/rates`, {
                 headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify({ amount })
+                }
             });
             
             if (response.ok) {
                 const data = await response.json();
-                return data.words || this.numberToWordsLocal(amount);
+                if (data.success) {
+                    // Store rates for reference
+                    this.rates = data.rates;
+                }
             }
-            return this.numberToWordsLocal(amount);
         } catch (error) {
-            return this.numberToWordsLocal(amount);
+            console.error('Failed to load rates:', error);
         }
     }
 
-    numberToWordsLocal(num) {
+    async updateBillSummary() {
+        // This is only a UI preview - actual calculations happen in backend
+        // BUSINESS RULE: Frontend must NEVER calculate GST
+        
+        let metalValue = 0;
+        let makingCharges = 0;
+        
+        // Calculate approximate values for UI preview (without GST)
+        this.items.forEach(item => {
+            const qty = item.qty || 1;
+            const ntWt = item.ntWt || 0;
+            const rate = item.rate || 0;
+            const mk = item.mk || 'FIX';
+            const mkCrg = item.mkCrg || 0;
+            const disMk = item.disMk || 0;
+            const huCrg = item.huCrg || 0;
+            
+            // Metal value
+            metalValue += ntWt * rate * qty;
+            
+            // Making charges
+            let making = 0;
+            if (mk === 'FIX') {
+                making = mkCrg * qty;
+            } else if (mk === '%') {
+                making = (ntWt * rate * qty) * (mkCrg / 100);
+            } else if (mk === 'GRM') {
+                making = ntWt * mkCrg * qty;
+            }
+            
+            // Apply discount on making
+            if (disMk > 0) {
+                making = making - (making * disMk / 100);
+            }
+            
+            makingCharges += making + (huCrg * qty);
+        });
+        
+        // Calculate exchange value (Market Rate - 3%) - BUSINESS RULE
+        let exchangeValue = 0;
+        this.exchangeItems.forEach(item => {
+            const qty = item.qty || 1;
+            const ntWt = item.ntWt || 0;
+            const rate = item.rate || 0;
+            const wastage = item.wastage || 0;
+            const melting = item.meltingCharges || 0;
+            
+            // Exchange rate = Current rate - 3%
+            const exchangeRate = rate * 0.97;
+            
+            // Apply wastage deduction
+            const wastageDeduction = (wastage / 100) * ntWt;
+            const effectiveWeight = ntWt - wastageDeduction;
+            
+            // Calculate exchange value
+            let itemValue = effectiveWeight * exchangeRate * qty;
+            itemValue -= melting;
+            itemValue = Math.max(0, itemValue);
+            
+            exchangeValue += itemValue;
+        });
+        
+        // Subtotal
+        const subTotal = metalValue + makingCharges;
+        
+        // Get discount
+        const discount = parseFloat(document.getElementById('discount')?.value) || 0;
+        
+        // IMPORTANT: GST is NOT calculated in frontend (BUSINESS RULE)
+        // GST will be calculated in backend only (3% on metal value)
+        
+        // Grand total (without GST for preview)
+        let grandTotal = subTotal - discount;
+        
+        // Balance calculation
+        let balancePayable = 0;
+        let balanceRefundable = 0;
+        
+        if (exchangeValue > 0) {
+            if (grandTotal > exchangeValue) {
+                balancePayable = grandTotal - exchangeValue;
+            } else {
+                balanceRefundable = exchangeValue - grandTotal;
+            }
+            
+            // Show exchange summary
+            const exchangeSummary = document.getElementById('exchangeSummary');
+            if (exchangeSummary) {
+                exchangeSummary.style.display = 'block';
+                document.getElementById('exchangeValue').textContent = `₹${exchangeValue.toFixed(2)}`;
+                document.getElementById('balancePay').textContent = `₹${balancePayable.toFixed(2)}`;
+                document.getElementById('balanceRefund').textContent = `₹${balanceRefundable.toFixed(2)}`;
+            }
+        } else {
+            const exchangeSummary = document.getElementById('exchangeSummary');
+            if (exchangeSummary) exchangeSummary.style.display = 'none';
+            balancePayable = grandTotal;
+        }
+        
+        // Update UI
+        document.getElementById('metalValue').textContent = `₹${metalValue.toFixed(2)}`;
+        document.getElementById('makingCharges').textContent = `₹${makingCharges.toFixed(2)}`;
+        document.getElementById('subTotal').textContent = `₹${subTotal.toFixed(2)}`;
+        document.getElementById('grandTotal').textContent = `₹${grandTotal.toFixed(2)}`;
+        
+        // Update amount in words
+        this.updateAmountInWords(grandTotal);
+        
+        // Update items list in summary
+        this.updateItemsList();
+    }
+
+    updateAmountInWords(amount) {
+        const amountInWords = document.getElementById('amountInWords');
+        if (amountInWords) {
+            amountInWords.textContent = this.numberToWords(amount);
+        }
+    }
+
+    numberToWords(num) {
         const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
         const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
         const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
@@ -668,135 +611,192 @@ class BillingSystem {
         const rupees = Math.floor(num);
         const paise = Math.round((num - rupees) * 100);
         
-        let words = '';
-        
-        if (rupees === 0) {
-            words = 'Zero';
-        } else if (rupees < 10) {
-            words = units[rupees];
-        } else if (rupees < 20) {
-            words = teens[rupees - 10];
-        } else if (rupees < 100) {
-            words = tens[Math.floor(rupees / 10)] + (rupees % 10 ? ' ' + units[rupees % 10] : '');
-        } else if (rupees < 1000) {
-            words = units[Math.floor(rupees / 100)] + ' Hundred' + 
-                   (rupees % 100 ? ' ' + this.numberToWordsLocal(rupees % 100) : '');
-        } else if (rupees < 100000) {
-            words = this.numberToWordsLocal(Math.floor(rupees / 1000)) + ' Thousand' + 
-                   (rupees % 1000 ? ' ' + this.numberToWordsLocal(rupees % 1000) : '');
-        } else if (rupees < 10000000) {
-            words = this.numberToWordsLocal(Math.floor(rupees / 100000)) + ' Lakh' + 
-                   (rupees % 100000 ? ' ' + this.numberToWordsLocal(rupees % 100000) : '');
-        } else {
-            words = this.numberToWordsLocal(Math.floor(rupees / 10000000)) + ' Crore' + 
-                   (rupees % 10000000 ? ' ' + this.numberToWordsLocal(rupees % 10000000) : '');
+        if (rupees === 0 && paise === 0) {
+            return 'Zero Rupees Only';
         }
         
-        words += ' Rupees';
+        let words = '';
         
-        if (paise > 0) {
-            words += ' and ';
-            if (paise < 10) {
-                words += units[paise];
-            } else if (paise < 20) {
-                words += teens[paise - 10];
-            } else {
-                words += tens[Math.floor(paise / 10)] + (paise % 10 ? ' ' + units[paise % 10] : '');
+        // Convert rupees
+        if (rupees > 0) {
+            // Convert crore part
+            if (rupees >= 10000000) {
+                const crore = Math.floor(rupees / 10000000);
+                words += this.convertNumberToWords(crore) + ' Crore ';
+                rupees %= 10000000;
             }
-            words += ' Paise';
+            
+            // Convert lakh part
+            if (rupees >= 100000) {
+                const lakh = Math.floor(rupees / 100000);
+                words += this.convertNumberToWords(lakh) + ' Lakh ';
+                rupees %= 100000;
+            }
+            
+            // Convert thousand part
+            if (rupees >= 1000) {
+                const thousand = Math.floor(rupees / 1000);
+                words += this.convertNumberToWords(thousand) + ' Thousand ';
+                rupees %= 1000;
+            }
+            
+            // Convert hundred part
+            if (rupees >= 100) {
+                const hundred = Math.floor(rupees / 100);
+                words += this.convertNumberToWords(hundred) + ' Hundred ';
+                rupees %= 100;
+            }
+            
+            // Convert tens and units
+            if (rupees > 0) {
+                if (words !== '') words += 'and ';
+                words += this.convertNumberToWords(rupees) + ' ';
+            }
+            
+            words += 'Rupees';
+        }
+        
+        // Convert paise
+        if (paise > 0) {
+            if (words !== '') words += ' and ';
+            words += this.convertNumberToWords(paise) + ' Paise';
         }
         
         return words + ' Only';
     }
 
+    convertNumberToWords(num) {
+        const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+        const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        
+        if (num < 10) return units[num];
+        if (num < 20) return teens[num - 10];
+        if (num < 100) {
+            const ten = Math.floor(num / 10);
+            const unit = num % 10;
+            return tens[ten] + (unit > 0 ? ' ' + units[unit] : '');
+        }
+        return '';
+    }
+
+    updateItemsList() {
+        const itemsList = document.getElementById('itemsList');
+        if (!itemsList) return;
+        
+        let html = '';
+        
+        this.items.forEach(item => {
+            const desc = item.product || 'Unnamed Item';
+            const metal = item.metalType ? `${item.metalType} ${item.purity}` : 'N/A';
+            const weight = item.ntWt ? item.ntWt.toFixed(3) : '0';
+            const amount = ((item.ntWt || 0) * (item.rate || 0) * (item.qty || 1)).toFixed(2);
+            
+            html += `
+                <tr>
+                    <td>${desc}</td>
+                    <td>${metal}</td>
+                    <td>${weight} g</td>
+                    <td>₹${amount}</td>
+                </tr>
+            `;
+        });
+        
+        if (html === '') {
+            html = '<tr><td colspan="4" class="text-center text-muted">No items added</td></tr>';
+        }
+        
+        itemsList.innerHTML = html;
+        
+        // Update exchange items list
+        const exchangeList = document.getElementById('exchangeItemsList');
+        const exchangeSection = document.getElementById('exchangeItemsSection');
+        
+        if (exchangeList && exchangeSection) {
+            let exchangeHtml = '';
+            
+            this.exchangeItems.forEach(item => {
+                const desc = item.product || 'Old Item';
+                const metal = item.metalType ? `${item.metalType} ${item.purity}` : 'N/A';
+                const weight = item.ntWt ? item.ntWt.toFixed(3) : '0';
+                
+                // Calculate exchange value (Market Rate - 3%) - BUSINESS RULE
+                const rate = item.rate || 0;
+                const exchangeRate = rate * 0.97;
+                const wastage = item.wastage || 0;
+                const melting = item.meltingCharges || 0;
+                const qty = item.qty || 1;
+                const ntWt = item.ntWt || 0;
+                
+                const wastageDeduction = (wastage / 100) * ntWt;
+                const effectiveWeight = ntWt - wastageDeduction;
+                let value = effectiveWeight * exchangeRate * qty - melting;
+                value = Math.max(0, value);
+                
+                exchangeHtml += `
+                    <tr>
+                        <td>${desc}</td>
+                        <td>${metal}</td>
+                        <td>${weight} g</td>
+                        <td>₹${value.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            
+            if (exchangeHtml === '') {
+                exchangeSection.style.display = 'none';
+            } else {
+                exchangeSection.style.display = 'block';
+                exchangeList.innerHTML = exchangeHtml;
+            }
+        }
+    }
+
     validateBill() {
-        console.log('Validating bill...', this.currentBill.customer);
-        
-        // Check customer details
-        const customerNameInput = document.getElementById('customerName');
-        const customerMobileInput = document.getElementById('customerMobile');
-        
-        if (customerNameInput && !this.currentBill.customer.name?.trim()) {
-            this.currentBill.customer.name = customerNameInput.value.trim();
-        }
-        
-        if (customerMobileInput && !this.currentBill.customer.mobile?.trim()) {
-            this.currentBill.customer.mobile = customerMobileInput.value.trim();
-        }
-        
-        if (!this.currentBill.customer.name?.trim()) {
-            this.showAlert('danger', 'Customer name is required');
+        // Validate customer
+        if (!this.customer.name || !this.customer.mobile) {
+            this.showAlert('danger', 'Customer name and mobile are required');
             return false;
         }
         
-        if (!this.currentBill.customer.mobile?.trim()) {
-            this.showAlert('danger', 'Customer mobile number is required');
-            return false;
-        }
-        
-        if (this.currentBill.items.length === 0) {
+        // Validate items
+        if (this.items.length === 0) {
             this.showAlert('danger', 'At least one item is required');
             return false;
         }
         
-        // Check each item
-        for (let i = 0; i < this.currentBill.items.length; i++) {
-            const item = this.currentBill.items[i];
-            const itemRow = document.getElementById(item.id);
+        // Validate all items have required fields
+        for (let i = 0; i < this.items.length; i++) {
+            const item = this.items[i];
             
-            if (!itemRow) continue;
-            
-            // Get current values from form fields
-            const metalTypeSelect = itemRow.querySelector('.metal-type');
-            const puritySelect = itemRow.querySelector('.purity');
-            const weightInput = itemRow.querySelector('input[type="number"]:nth-of-type(1)');
-            const makingChargesInput = itemRow.querySelector('input[type="number"]:nth-of-type(2)');
-            const makingChargesTypeSelect = itemRow.querySelector('.making-charges-type'); // Fixed: Added class
-            
-            // Update item data from form fields
-            if (metalTypeSelect) {
-                item.metalType = metalTypeSelect.value;
-            }
-            
-            if (puritySelect) {
-                item.purity = puritySelect.value;
-            }
-            
-            if (weightInput) {
-                item.weight = parseFloat(weightInput.value) || 0;
-            }
-            
-            if (makingChargesInput) {
-                item.makingCharges = parseFloat(makingChargesInput.value) || 0;
-            }
-            
-            if (makingChargesTypeSelect) {
-                item.makingChargesType = makingChargesTypeSelect.value;
-            }
-            
-            // Now validate
-            if (!item.metalType || item.metalType.trim() === '') {
-                this.showAlert('danger', `Please select metal type for item ${i + 1}`);
+            if (!item.metalType || !item.purity) {
+                this.showAlert('danger', `Item ${i + 1}: Metal type and purity are required`);
                 return false;
             }
             
-            if (!item.purity || item.purity.trim() === '') {
-                this.showAlert('danger', `Please select purity for item ${i + 1}`);
+            if (!item.rate || item.rate <= 0) {
+                this.showAlert('danger', `Item ${i + 1}: Rate is required and must be greater than 0`);
                 return false;
             }
             
-            if (!item.weight || item.weight <= 0) {
-                this.showAlert('danger', `Please enter valid weight for item ${i + 1}`);
+            if (!item.ntWt || item.ntWt <= 0) {
+                this.showAlert('danger', `Item ${i + 1}: Net weight must be greater than 0`);
+                return false;
+            }
+        }
+        
+        // Validate exchange items
+        for (let i = 0; i < this.exchangeItems.length; i++) {
+            const item = this.exchangeItems[i];
+            
+            if (!item.metalType || !item.purity) {
+                this.showAlert('danger', `Exchange Item ${i + 1}: Metal type and purity are required`);
                 return false;
             }
             
-            if (item.makingCharges === undefined || item.makingCharges < 0) {
-                this.showAlert('danger', `Please enter valid making charges for item ${i + 1}`);
+            if (!item.rate || item.rate <= 0) {
+                this.showAlert('danger', `Exchange Item ${i + 1}: Current rate is required and must be greater than 0`);
                 return false;
-            }
-            
-            if (!item.makingChargesType || !['percentage', 'fixed'].includes(item.makingChargesType)) {
-                item.makingChargesType = 'percentage'; // Default value
             }
         }
         
@@ -814,78 +814,14 @@ class BillingSystem {
         btn.disabled = true;
         
         try {
-            // Capture all customer data with fallbacks
-            const customerName = document.getElementById('customerName').value.trim();
-            const customerMobile = document.getElementById('customerMobile').value.trim();
-            const customerAddress = document.getElementById('customerAddress').value.trim();
-            const customerDOB = document.getElementById('customerDOB').value;
-            const customerPAN = document.getElementById('customerPAN').value;
-            const customerAadhaar = document.getElementById('customerAadhaar').value;
-            
-            if (!customerName || !customerMobile) {
-                throw new Error('Customer name and mobile are required');
-            }
-            
-            // Prepare customer data - ensure optional fields are empty strings if not provided
-            const customerData = {
-                name: customerName,
-                mobile: customerMobile,
-                address: customerAddress || '',
-                dob: customerDOB || '',
-                pan: customerPAN || '',
-                aadhaar: customerAadhaar || ''
-            };
-            
-            // Prepare items data - ensure all required fields are present
-            const itemsData = [];
-            for (let i = 0; i < this.currentBill.items.length; i++) {
-                const item = this.currentBill.items[i];
-                const itemRow = document.getElementById(item.id);
-                
-                if (!itemRow) continue;
-                
-                const metalTypeSelect = itemRow.querySelector('.metal-type');
-                const puritySelect = itemRow.querySelector('.purity');
-                const weightInput = itemRow.querySelector('input[type="number"]:nth-of-type(1)');
-                const makingChargesInput = itemRow.querySelector('input[type="number"]:nth-of-type(2)');
-                const makingChargesTypeSelect = itemRow.querySelector('.making-charges-type');
-                
-                const itemData = {
-                    description: item.description || '',
-                    metalType: metalTypeSelect ? metalTypeSelect.value : item.metalType,
-                    purity: puritySelect ? puritySelect.value : item.purity,
-                    weight: weightInput ? parseFloat(weightInput.value) || 0 : item.weight,
-                    makingCharges: makingChargesInput ? parseFloat(makingChargesInput.value) || 0 : item.makingCharges,
-                    makingChargesType: makingChargesTypeSelect ? makingChargesTypeSelect.value : item.makingChargesType || 'percentage'
-                };
-                
-                // Validate makingChargesType
-                if (!['percentage', 'fixed'].includes(itemData.makingChargesType)) {
-                    itemData.makingChargesType = 'percentage';
-                }
-                
-                itemsData.push(itemData);
-            }
-            
-            // Prepare exchange items data
-            const exchangeItemsData = this.currentBill.exchangeItems.map(item => ({
-                description: item.description || '',
-                metalType: item.metalType,
-                purity: item.purity,
-                weight: item.weight,
-                wastageDeduction: item.wastageDeduction || 0,
-                meltingCharges: item.meltingCharges || 0
-            }));
-            
+            // Prepare bill data with ALL fields
             const billData = {
-                customer: customerData,
-                items: itemsData,
-                exchangeItems: exchangeItemsData,
-                discount: this.currentBill.discount,
-                paymentMode: this.currentBill.paymentMode,
-                isIntraState: this.currentBill.isIntraState,
-                gstOnMetal: this.currentBill.gstOnMetal,
-                gstOnMaking: this.currentBill.gstOnMaking
+                customer: this.customer,
+                items: this.items,
+                exchangeItems: this.exchangeItems,
+                gstType: document.getElementById('gstType')?.value || 'intra',
+                paymentMode: document.getElementById('paymentMode')?.value || 'cash',
+                discount: parseFloat(document.getElementById('discount')?.value) || 0
             };
             
             console.log('Sending bill data:', billData);
@@ -907,20 +843,15 @@ class BillingSystem {
                 this.showAlert('success', 'Bill generated successfully!');
                 this.showBillPreview(data.bill);
                 document.getElementById('printBillBtn').disabled = false;
+                
+                // Store bill for printing
+                window.currentBill = data.bill;
             } else {
-                // Show detailed error message from server
-                let errorMessage = 'Failed to generate bill';
-                if (data.message) {
-                    errorMessage = data.message;
-                }
-                if (data.errors && Array.isArray(data.errors)) {
-                    errorMessage = data.errors.map(err => err.msg || err.message).join(', ');
-                }
-                throw new Error(errorMessage);
+                throw new Error(data.message || 'Failed to generate bill');
             }
         } catch (error) {
             console.error('Generate bill error:', error);
-            this.showAlert('danger', error.message || 'Failed to generate bill. Please check console for details.');
+            this.showAlert('danger', error.message || 'Failed to generate bill');
         } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;
@@ -928,333 +859,268 @@ class BillingSystem {
     }
 
     showBillPreview(bill) {
-    window.currentBill = bill;
-    
-    document.getElementById('previewBillNumber').textContent = bill.billNumber;
-    document.getElementById('previewBillDate').textContent = 
-        new Date(bill.billDate).toLocaleDateString('en-IN');
-    document.getElementById('previewCustomerName').textContent = bill.customer.name;
-    document.getElementById('previewCustomerMobile').textContent = bill.customer.mobile;
-    document.getElementById('previewCustomerAddress').textContent = bill.customer.address || 'Not provided';
-    document.getElementById('previewPaymentMode').textContent = bill.paymentMode.toUpperCase();
-    document.getElementById('previewGSTType').textContent = bill.isIntraState ? 'CGST+SGST' : 'IGST';
-    document.getElementById('previewInvoiceType').textContent = 
-        bill.exchangeDetails.hasExchange ? 'Sale with Exchange' : 'Sale';
-    
-    // FIXED: Use gstDetails from bill response with fallbacks
-    const gstDetails = bill.gstDetails || {};
-    const metalAmount = gstDetails.metalAmount || 0;
-    const makingCharges = gstDetails.makingCharges || 0;
-    const gstOnMetal = gstDetails.gstOnMetal || 0;
-    const gstOnMaking = gstDetails.gstOnMaking || 0;
-    
-    // Calculate values if not directly available
-    const metalValue = metalAmount || (bill.grandTotal - gstOnMetal - gstOnMaking - bill.discount - makingCharges);
-    const makingChargesAmount = makingCharges || 0;
-    
-    document.getElementById('previewMetalValue').textContent = `₹${metalValue.toFixed(2)}`;
-    document.getElementById('previewMakingCharges').textContent = `₹${makingChargesAmount.toFixed(2)}`;
-    document.getElementById('previewSubTotal').textContent = `₹${(metalValue + makingChargesAmount).toFixed(2)}`;
-    document.getElementById('previewDiscount').textContent = `₹${bill.discount.toFixed(2)}`;
-    document.getElementById('previewGSTMetal').textContent = `₹${gstOnMetal.toFixed(2)}`;
-    document.getElementById('previewGSTMaking').textContent = `₹${gstOnMaking.toFixed(2)}`;
-    document.getElementById('previewGrandTotal').textContent = `₹${bill.grandTotal.toFixed(2)}`;
-    document.getElementById('previewAmountWords').textContent = bill.amountInWords;
-    
-    const regularItems = bill.items.filter(item => !item.isExchangeItem);
-    const exchangeItems = bill.items.filter(item => item.isExchangeItem);
-    
-    document.getElementById('previewItems').innerHTML = regularItems.map(item => `
-        <tr>
-            <td>${item.description || 'Item'}</td>
-            <td>${item.metalType} ${item.purity}</td>
-            <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
-            <td>₹${item.amount.toFixed(2)}</td>
-        </tr>
-    `).join('');
-    
-    if (exchangeItems.length > 0) {
-        document.getElementById('exchangePreviewSection').style.display = 'block';
-        document.getElementById('previewExchangeDetails').style.display = 'block';
+        if (!bill) return;
         
-        document.getElementById('previewExchangeItems').innerHTML = exchangeItems.map(item => `
-            <tr>
-                <td>${item.description || 'Old Item'}</td>
-                <td>${item.metalType} ${item.purity}</td>
-                <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
-                <td>₹${Math.abs(item.amount).toFixed(2)}</td>
-            </tr>
-        `).join('');
+        // Update preview modal with bill details
+        document.getElementById('previewBillNumber').textContent = bill.billNumber;
+        document.getElementById('previewBillDate').textContent = new Date(bill.billDate).toLocaleDateString();
+        document.getElementById('previewCustomerName').textContent = bill.customer.name;
+        document.getElementById('previewCustomerMobile').textContent = bill.customer.mobile;
+        document.getElementById('previewCustomerAddress').textContent = bill.customer.address || 'N/A';
+        document.getElementById('previewPaymentMode').textContent = bill.paymentMode;
+        document.getElementById('previewGSTType').textContent = bill.gstType === 'intra' ? 'CGST+SGST' : 'IGST';
         
-        document.getElementById('previewOldItemsTotal').textContent = 
-            `₹${bill.exchangeDetails.oldItemsTotal.toFixed(2)}`;
+        // Update items in preview
+        const previewItems = document.getElementById('previewItems');
+        let itemsHtml = '';
         
-        if (bill.exchangeDetails.balancePayable > 0) {
-            document.getElementById('previewBalance').textContent = 
-                `₹${bill.exchangeDetails.balancePayable.toFixed(2)} Payable`;
-        } else {
-            document.getElementById('previewBalance').textContent = 
-                `₹${bill.exchangeDetails.balanceRefundable.toFixed(2)} Refundable`;
-        }
-    } else {
-        document.getElementById('exchangePreviewSection').style.display = 'none';
-        document.getElementById('previewExchangeDetails').style.display = 'none';
-    }
-    
-    if (bill.qrCodes?.billQR) {
-        document.getElementById('previewBillQR').src = 
-            `data:image/png;base64,${bill.qrCodes.billQR}`;
-    }
-    
-    document.getElementById('billPreviewModal').classList.add('show');
-}
-    printBill() {
-    if (!window.currentBill) {
-        this.showAlert('warning', 'Please generate a bill first');
-        return;
-    }
-    
-    const bill = window.currentBill;
-    
-    // Create print container if it doesn't exist
-    let printContainer = document.getElementById('printContainer');
-    if (!printContainer) {
-        printContainer = document.createElement('div');
-        printContainer.id = 'printContainer';
-        printContainer.className = 'print-container';
-        document.body.appendChild(printContainer);
-    }
-    
-    // Generate print content
-    const printContent = this.generatePrintHTML(bill);
-    
-    // Set the content
-    printContainer.innerHTML = printContent;
-    
-    // Show print container
-    printContainer.style.display = 'block';
-    
-    // Mobile detection
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-        // Mobile: Show in same page, then print after rendering
-        printContainer.scrollIntoView({ behavior: 'smooth' });
-        
-        // Wait for content to render
-        setTimeout(() => {
-            // Trigger print dialog
-            window.print();
-            
-            // Hide container after printing
-            setTimeout(() => {
-                printContainer.style.display = 'none';
-            }, 1000);
-        }, 500);
-    } else {
-        // Desktop: Open new window for printing
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Bill ${bill.billNumber}</title>
-                    <link rel="stylesheet" href="css/print.css">
-                    <style>
-                        body { margin: 0; padding: 0; }
-                        @page { size: A4; margin: 15mm; }
-                    </style>
-                </head>
-                <body>
-                    ${printContent}
-                    <script>
-                        window.onload = function() {
-                            setTimeout(function() {
-                                window.print();
-                                setTimeout(function() {
-                                    window.close();
-                                }, 100);
-                            }, 100);
-                        };
-                    </script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-        } else {
-            // Fallback to same page if popup blocked
-            window.print();
-        }
-    }
-}
-generatePrintHTML(bill) {
-    const regularItems = bill.items.filter(item => !item.isExchangeItem);
-    const exchangeItems = bill.items.filter(item => item.isExchangeItem);
-    const gstDetails = bill.gstDetails || {};
-    
-    return `
-        <div class="invoice-container keep-together">
-            <div class="shop-name">Shri Mahakaleshwar Jewellers</div>
-            <div class="shop-address">Anisabad, Patna, Bihar - 800002</div>
-            <div class="shop-contact">Mobile: +91 9876543210 | GSTIN: 10ABCDE1234F1Z5</div>
-            
-            <div class="bill-info">
-                <div>
-                    <div class="bill-number"><strong>Bill No:</strong> ${bill.billNumber}</div>
-                    <div class="bill-date"><strong>Date:</strong> ${new Date(bill.billDate).toLocaleDateString('en-IN')}</div>
-                </div>
-                <div>
-                    <div><strong>Invoice Type:</strong> ${bill.exchangeDetails?.hasExchange ? 'Sale with Exchange' : 'Sale'}</div>
-                    <div><strong>Payment Mode:</strong> ${bill.paymentMode?.toUpperCase() || 'CASH'}</div>
-                    <div><strong>GST Type:</strong> ${bill.isIntraState ? 'CGST+SGST' : 'IGST'}</div>
-                </div>
-            </div>
-            
-            <div class="customer-info">
-                <h3>Customer Details</h3>
-                <p><strong>Name:</strong> ${bill.customer.name}</p>
-                <p><strong>Mobile:</strong> ${bill.customer.mobile}</p>
-                ${bill.customer.address ? `<p><strong>Address:</strong> ${bill.customer.address}</p>` : ''}
-                ${bill.customer.pan ? `<p><strong>PAN:</strong> ${bill.customer.pan}</p>` : ''}
-                ${bill.customer.aadhaar ? `<p><strong>Aadhaar:</strong> ${bill.customer.aadhaar}</p>` : ''}
-                ${bill.customer.dob ? `<p><strong>Date of Birth:</strong> ${new Date(bill.customer.dob).toLocaleDateString('en-IN')}</p>` : ''}
-            </div>
-            
-            <h3 style="margin: 5mm 0 2mm 0; color: #D4AF37;">Items</h3>
-            <table class="items-table">
-                <thead>
+        bill.items.forEach(item => {
+            if (!item.isExchange) {
+                itemsHtml += `
                     <tr>
-                        <th>Description</th>
-                        <th>Metal & Purity</th>
-                        <th>Weight</th>
-                        <th>Amount (₹)</th>
+                        <td>${item.product}</td>
+                        <td>${item.metalType} ${item.purity}</td>
+                        <td>${item.ntWt.toFixed(3)} g</td>
+                        <td>₹${item.totalValue.toFixed(2)}</td>
                     </tr>
-                </thead>
-                <tbody>
-                    ${regularItems.map(item => `
-                        <tr>
-                            <td>${item.description || ''}</td>
-                            <td>${item.metalType} ${item.purity}</td>
-                            <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
-                            <td>₹${item.amount.toFixed(2)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+                `;
+            }
+        });
+        
+        previewItems.innerHTML = itemsHtml;
+        
+        // Update exchange items if any
+        const hasExchange = bill.items.some(item => item.isExchange);
+        if (hasExchange) {
+            document.getElementById('exchangePreviewSection').style.display = 'block';
+            const previewExchange = document.getElementById('previewExchangeItems');
+            let exchangeHtml = '';
             
-            ${exchangeItems.length > 0 ? `
-                <h3 style="margin: 5mm 0 2mm 0; color: #D4AF37;">Exchange Items</h3>
-                <table class="items-table">
-                    <thead>
+            bill.items.forEach(item => {
+                if (item.isExchange) {
+                    exchangeHtml += `
                         <tr>
-                            <th>Description</th>
-                            <th>Metal & Purity</th>
-                            <th>Weight</th>
-                            <th>Value (₹)</th>
+                            <td>${item.product}</td>
+                            <td>${item.metalType} ${item.purity}</td>
+                            <td>${item.ntWt.toFixed(3)} g</td>
+                            <td>₹${item.totalValue.toFixed(2)}</td>
+                        </tr>
+                    `;
+                }
+            });
+            
+            previewExchange.innerHTML = exchangeHtml;
+        } else {
+            document.getElementById('exchangePreviewSection').style.display = 'none';
+        }
+        
+        // Update summary
+        document.getElementById('previewMetalValue').textContent = `₹${bill.summary.metalValue.toFixed(2)}`;
+        document.getElementById('previewMakingCharges').textContent = `₹${bill.summary.makingValue.toFixed(2)}`;
+        document.getElementById('previewSubTotal').textContent = `₹${bill.summary.subTotal.toFixed(2)}`;
+        document.getElementById('previewDiscount').textContent = `₹${bill.discount || 0}`;
+        document.getElementById('previewGSTMetal').textContent = `₹${bill.summary.gst.gstAmount.toFixed(2)}`;
+        document.getElementById('previewGrandTotal').textContent = `₹${bill.summary.grandTotal.toFixed(2)}`;
+        document.getElementById('previewAmountWords').textContent = this.numberToWords(bill.summary.grandTotal);
+        
+        if (hasExchange) {
+            document.getElementById('previewExchangeDetails').style.display = 'block';
+            document.getElementById('previewOldItemsTotal').textContent = `₹${bill.summary.exchangeValue.toFixed(2)}`;
+            
+            if (bill.summary.balancePayable > 0) {
+                document.getElementById('previewBalance').textContent = `₹${bill.summary.balancePayable.toFixed(2)} Payable`;
+            } else {
+                document.getElementById('previewBalance').textContent = `₹${bill.summary.balanceRefundable.toFixed(2)} Refundable`;
+            }
+        } else {
+            document.getElementById('previewExchangeDetails').style.display = 'none';
+        }
+        
+        // Generate QR code
+        const qrText = `Bill No: ${bill.billNumber}\nDate: ${new Date(bill.billDate).toLocaleDateString()}\nAmount: ₹${bill.summary.grandTotal.toFixed(2)}`;
+        const qrImg = document.getElementById('previewBillQR');
+        if (qrImg) {
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrText)}`;
+        }
+        
+        // Show modal
+        document.getElementById('billPreviewModal').classList.add('show');
+    }
+
+    printBill() {
+        if (!window.currentBill) {
+            this.showAlert('warning', 'Please generate a bill first');
+            return;
+        }
+        
+        const printContainer = document.getElementById('printContainer');
+        if (printContainer) {
+            printContainer.innerHTML = this.generatePrintHTML(window.currentBill);
+            printContainer.style.display = 'block';
+            
+            // Wait for content to render
+            setTimeout(() => {
+                window.print();
+                
+                // Hide container after printing
+                setTimeout(() => {
+                    printContainer.style.display = 'none';
+                }, 1000);
+            }, 500);
+        } else {
+            window.print();
+        }
+    }
+
+    generatePrintHTML(bill) {
+        const regularItems = bill.items.filter(item => !item.isExchange);
+        const exchangeItems = bill.items.filter(item => item.isExchange);
+        
+        return `
+            <div class="invoice-container">
+                <div style="text-align: center; border-bottom: 2px solid #D4AF37; padding-bottom: 20px; margin-bottom: 20px;">
+                    <h2 style="color: #D4AF37; margin: 0;">Shri Mahakaleshwar Jewellers</h2>
+                    <p style="margin: 5px 0; color: #666;">Anisabad, Patna, Bihar - 800002</p>
+                    <p style="margin: 5px 0; color: #666;">Mobile: +91 9876543210 | GSTIN: 10ABCDE1234F1Z5</p>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                    <div>
+                        <div><strong>Bill No:</strong> ${bill.billNumber}</div>
+                        <div><strong>Date:</strong> ${new Date(bill.billDate).toLocaleDateString()}</div>
+                    </div>
+                    <div>
+                        <div><strong>Invoice Type:</strong> ${exchangeItems.length > 0 ? 'Sale with Exchange' : 'Sale'}</div>
+                        <div><strong>Payment Mode:</strong> ${bill.paymentMode.toUpperCase()}</div>
+                        <div><strong>GST Type:</strong> ${bill.gstType === 'intra' ? 'CGST+SGST' : 'IGST'}</div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px; padding: 15px; background: white; border: 1px solid #eee; border-radius: 5px;">
+                    <h4 style="margin: 0 0 10px 0; color: #333;">Customer Details</h4>
+                    <p style="margin: 5px 0;"><strong>Name:</strong> ${bill.customer.name}</p>
+                    <p style="margin: 5px 0;"><strong>Mobile:</strong> ${bill.customer.mobile}</p>
+                    <p style="margin: 5px 0;"><strong>Address:</strong> ${bill.customer.address || 'N/A'}</p>
+                </div>
+                
+                <h4 style="color: #333; margin-bottom: 10px;">Items</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Description</th>
+                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Metal & Purity</th>
+                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Weight</th>
+                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Amount (₹)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${exchangeItems.map(item => `
+                        ${regularItems.map(item => `
                             <tr>
-                                <td>${item.description || 'Old Item'}</td>
-                                <td>${item.metalType} ${item.purity}</td>
-                                <td>${item.weight.toFixed(3)} ${item.metalType === 'Diamond' ? 'ct' : 'g'}</td>
-                                <td>-₹${Math.abs(item.amount).toFixed(2)}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd;">${item.product}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd;">${item.metalType} ${item.purity}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd;">${item.ntWt.toFixed(3)} g</td>
+                                <td style="padding: 10px; border: 1px solid #ddd;">₹${item.totalValue.toFixed(2)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
-            ` : ''}
-            
-            <div class="calculations">
-                <div class="calc-row">
-                    <span>Metal Value:</span>
-                    <span>₹${(gstDetails.metalAmount || 0).toFixed(2)}</span>
-                </div>
-                <div class="calc-row">
-                    <span>Making Charges:</span>
-                    <span>₹${(gstDetails.makingCharges || 0).toFixed(2)}</span>
-                </div>
-                <div class="calc-row">
-                    <span>Sub Total:</span>
-                    <span>₹${((gstDetails.metalAmount || 0) + (gstDetails.makingCharges || 0)).toFixed(2)}</span>
-                </div>
-                <div class="calc-row">
-                    <span>Discount:</span>
-                    <span>-₹${(bill.discount || 0).toFixed(2)}</span>
-                </div>
-                <div class="calc-row">
-                    <span>GST on Metal (${gstDetails.gstOnMetalRate || 3}%):</span>
-                    <span>₹${(gstDetails.gstOnMetal || 0).toFixed(2)}</span>
-                </div>
-                <div class="calc-row">
-                    <span>GST on Making (${gstDetails.gstOnMakingRate || 5}%):</span>
-                    <span>₹${(gstDetails.gstOnMaking || 0).toFixed(2)}</span>
-                </div>
-                ${bill.exchangeDetails?.hasExchange ? `
-                    <div class="calc-row">
-                        <span>Old Items Value:</span>
-                        <span>₹${(bill.exchangeDetails.oldItemsTotal || 0).toFixed(2)}</span>
-                    </div>
+                
+                ${exchangeItems.length > 0 ? `
+                    <h4 style="color: #333; margin-bottom: 10px;">Exchange Items</h4>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Description</th>
+                                <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Metal & Purity</th>
+                                <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Weight</th>
+                                <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Value (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${exchangeItems.map(item => `
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid #ddd;">${item.product}</td>
+                                    <td style="padding: 10px; border: 1px solid #ddd;">${item.metalType} ${item.purity}</td>
+                                    <td style="padding: 10px; border: 1px solid #ddd;">${item.ntWt.toFixed(3)} g</td>
+                                    <td style="padding: 10px; border: 1px solid #ddd;">₹${item.totalValue.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
                 ` : ''}
-                <div class="calc-row total">
-                    <span>${bill.exchangeDetails?.hasExchange ? 'Balance ' : 'Grand '}Total:</span>
-                    <span>₹${(bill.grandTotal || 0).toFixed(2)}</span>
-                </div>
-                ${bill.exchangeDetails?.hasExchange ? `
-                    <div class="calc-row">
-                        <span>${bill.exchangeDetails.balancePayable > 0 ? 'Amount Payable:' : 'Amount Refundable:'}</span>
-                        <span>₹${Math.max(bill.exchangeDetails.balancePayable || 0, bill.exchangeDetails.balanceRefundable || 0).toFixed(2)}</span>
+                
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+                        <span>Metal Value:</span>
+                        <span>₹${bill.summary.metalValue.toFixed(2)}</span>
                     </div>
-                ` : ''}
-            </div>
-            
-            <div class="amount-words">
-                <p><strong>Amount in Words:</strong> ${bill.amountInWords || 'Zero Rupees Only'}</p>
-            </div>
-            
-            <div class="qr-codes">
-                ${bill.qrCodes?.billQR ? `
-                    <div class="qr-box">
-                        <h4>Bill QR Code</h4>
-                        <img src="data:image/png;base64,${bill.qrCodes.billQR}" alt="Bill QR Code">
-                        <p>Scan for bill details</p>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+                        <span>Making Charges:</span>
+                        <span>₹${bill.summary.makingValue.toFixed(2)}</span>
                     </div>
-                ` : ''}
-            </div>
-            
-            <div class="invoice-footer">
-                <div class="signature">
-                    <div class="signature-box">
-                        <div class="signature-line"></div>
-                        <p>Customer Signature</p>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+                        <span>Sub Total:</span>
+                        <span>₹${bill.summary.subTotal.toFixed(2)}</span>
                     </div>
-                    <div class="signature-box">
-                        <div class="signature-line"></div>
-                        <p>Authorized Signature</p>
-                        <p>For Shri Mahakaleshwar Jewellers</p>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+                        <span>Discount:</span>
+                        <span>-₹${(bill.discount || 0).toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+                        <span>GST on Metal (3%):</span>
+                        <span>₹${bill.summary.gst.gstAmount.toFixed(2)}</span>
+                    </div>
+                    ${exchangeItems.length > 0 ? `
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <span>Old Items Value:</span>
+                            <span>₹${bill.summary.exchangeValue.toFixed(2)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 2px solid #D4AF37;">
+                            <span>Balance:</span>
+                            <span>₹${bill.summary.balancePayable > 0 ? bill.summary.balancePayable.toFixed(2) + ' Payable' : bill.summary.balanceRefundable.toFixed(2) + ' Refundable'}</span>
+                        </div>
+                    ` : ''}
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; font-weight: bold; color: #D4AF37; border-bottom: 2px solid #D4AF37;">
+                        <span>${exchangeItems.length > 0 ? 'Balance ' : 'Grand '}Total:</span>
+                        <span>₹${bill.summary.grandTotal.toFixed(2)}</span>
                     </div>
                 </div>
                 
-                <div class="terms">
-                    <p><strong>Terms & Conditions:</strong></p>
-                    <p>1. Goods once sold will not be taken back or exchanged.</p>
-                    <p>2. All disputes subject to Patna jurisdiction only.</p>
-                    <p>3. Certification charges extra if any.</p>
-                    <p>4. Making charges are non-refundable.</p>
-                    <p style="text-align: center; margin-top: 5mm;">Thank you for your business! Visit again.</p>
+                <div style="margin-bottom: 20px; padding: 15px; background: white; border: 1px solid #eee; border-radius: 5px;">
+                    <p style="margin: 0;"><strong>Amount in Words:</strong> ${this.numberToWords(bill.summary.grandTotal)}</p>
+                </div>
+                
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="display: inline-block; padding: 15px; background: white; border: 1px solid #eee; border-radius: 5px;">
+                        <h5 style="margin: 0 0 10px 0;">Bill QR Code</h5>
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Bill%20No%3A%20${bill.billNumber}%0ADate%3A%20${new Date(bill.billDate).toLocaleDateString()}%0AAmount%3A%20₹${bill.summary.grandTotal.toFixed(2)}" 
+                             alt="Bill QR Code" style="max-width: 150px; height: auto;">
+                        <p style="margin: 10px 0 0 0; color: #666;">Scan for bill details</p>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd;">
+                    <div style="text-align: center;">
+                        <div style="border-top: 1px solid #333; width: 200px; margin-bottom: 10px;"></div>
+                        <p style="margin: 0;">Customer Signature</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="border-top: 1px solid #333; width: 200px; margin-bottom: 10px;"></div>
+                        <p style="margin: 0;">Authorized Signature</p>
+                        <p style="margin: 0; color: #666;">For Shri Mahakaleshwar Jewellers</p>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
-}             
+        `;
+    }
+
     clearForm() {
         if (!confirm('Are you sure you want to clear the form? All data will be lost.')) {
             return;
         }
         
-        this.currentBill.customer = {
+        // Reset customer data
+        this.customer = {
             name: '',
             mobile: '',
             address: '',
@@ -1263,73 +1129,83 @@ generatePrintHTML(bill) {
             aadhaar: ''
         };
         
-        document.getElementById('customerForm').reset();
+        // Reset forms
+        document.getElementById('customerForm')?.reset();
         
-        this.currentBill.items = [];
-        this.currentBill.exchangeItems = [];
-        this.currentBill.discount = 0;
+        // Clear items
+        this.items = [];
+        this.exchangeItems = [];
+        this.currentItemId = 1;
+        this.currentExchangeId = 1;
         
+        // Clear containers
         document.getElementById('itemsContainer').innerHTML = `
             <div class="text-center text-muted" style="padding: 20px;">
                 <i class="fas fa-plus-circle fa-2x" style="margin-bottom: 10px;"></i>
                 <p>Click "Add Item" to start adding jewellery items</p>
             </div>
         `;
+        
         document.getElementById('exchangeItems').innerHTML = '';
-        document.getElementById('discount').value = '0';
         document.getElementById('exchangeSection').style.display = 'none';
         
-        this.currentBill.paymentMode = 'cash';
-        this.currentBill.isIntraState = true;
-        
-        document.getElementById('paymentMode').value = 'cash';
+        // Reset summary
+        document.getElementById('discount').value = '0';
         document.getElementById('gstType').value = 'intra';
+        document.getElementById('paymentMode').value = 'cash';
         
-        this.updateSummary();
+        // Update UI
+        this.updateBillSummary();
         document.getElementById('printBillBtn').disabled = true;
         
         this.showAlert('info', 'Form cleared successfully');
     }
+
+    showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
+        `;
+        
+        const container = document.getElementById('alertContainer');
+        if (container) {
+            container.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentElement) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    }
 }
 
 // Initialize on page load
-if (typeof window !== 'undefined') {
-    window.BillingSystem = BillingSystem;
-    
-    // Make functions globally accessible
-    window.billingSystem = {
-        handleMetalChange: (itemId, metalType, isExchange) => {
-            if (window.BillingSystem && window.BillingSystem.instance) {
-                window.BillingSystem.instance.handleMetalChange(itemId, metalType, isExchange);
-            }
-        },
-        handleItemInput: (itemId, field, value, isExchange) => {
-            if (window.BillingSystem && window.BillingSystem.instance) {
-                window.BillingSystem.instance.handleItemInput(itemId, field, value, isExchange);
-            }
-        },
-        removeItem: (itemId, isExchange) => {
-            if (window.BillingSystem && window.BillingSystem.instance) {
-                window.BillingSystem.instance.removeItem(itemId, isExchange);
-            }
-        },
-        clearForm: () => {
-            if (window.BillingSystem && window.BillingSystem.instance) {
-                window.BillingSystem.instance.clearForm();
-            }
-        },
-        printBill: () => {
-            if (window.BillingSystem && window.BillingSystem.instance) {
-                window.BillingSystem.instance.printBill();
-            }
-        },
-        updateCustomer: (field, value) => {
-            if (window.BillingSystem && window.BillingSystem.instance) {
-                window.BillingSystem.instance.updateCustomer(field, value);
-            }
-        }
-    };
-}
-if (typeof window !== 'undefined') {
-    BillingSystem.instance = new BillingSystem();
-}
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.auth && window.auth.isAuthenticated && window.auth.isAuthenticated()) {
+        window.billingSystem = new BillingSystem();
+    } else {
+        window.location.href = 'login.html';
+    }
+});
+
+// Make functions globally accessible
+window.updateCustomer = (field, value) => {
+    if (window.billingSystem) {
+        window.billingSystem.customer[field] = value;
+    }
+};
+
+window.clearForm = () => {
+    if (window.billingSystem) {
+        window.billingSystem.clearForm();
+    }
+};
+
+window.printBill = () => {
+    if (window.billingSystem) {
+        window.billingSystem.printBill();
+    }
+};
