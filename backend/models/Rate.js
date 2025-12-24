@@ -1,11 +1,15 @@
+// backend/models/Rate.js
 const mongoose = require('mongoose');
 
-const rateSchema = new mongoose.Schema({
+const RateSchema = new mongoose.Schema({
   metalType: {
     type: String,
     required: true,
-    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others'],
-    unique: true
+    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Others']
+  },
+  purity: {
+    type: String,
+    required: true
   },
   rate: {
     type: Number,
@@ -14,53 +18,22 @@ const rateSchema = new mongoose.Schema({
   },
   unit: {
     type: String,
-    enum: ['kg', 'carat', 'piece'],
-    default: 'kg'
+    required: true,
+    enum: ['gram', 'kg', 'carat']
   },
-  purityLevels: [{
-    type: String,
-    default: ['22K', '18K', '14K']
-  }],
-  makingChargesDefault: {
-    type: Number,
-    default: 10
-  },
-  makingChargesType: {
-    type: String,
-    enum: ['percentage', 'fixed'],
-    default: 'percentage'
-  },
-  gstRate: {
-    type: Number,
-    default: 3,
-    min: 0,
-    max: 100
-  },
-  gstOnMaking: {
-    type: Number,
-    default: 5,
-    min: 0,
-    max: 100
-  },
-  lastUpdated: {
+  effectiveDate: {
     type: Date,
     default: Date.now
   },
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  },
-  active: {
-    type: Boolean,
-    default: true
   }
 }, {
   timestamps: true
 });
 
-// Indexes
-rateSchema.index({ metalType: 1, active: 1 });
+// Compound index for metal type and purity
+RateSchema.index({ metalType: 1, purity: 1 }, { unique: true });
 
-const Rate = mongoose.model('Rate', rateSchema);
-
-module.exports = Rate;
+module.exports = mongoose.model('Rate', RateSchema);
