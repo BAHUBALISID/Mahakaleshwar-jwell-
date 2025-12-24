@@ -12,29 +12,54 @@ const updateRateValidation = [
 ];
 
 const addRateValidation = [
-  body('metalType').isIn(['Gold', 'Silver', 'Diamond', 'Platinum', 'Others']).withMessage('Valid metal type is required'),
+  body('metalType').isIn(['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others'])
+    .withMessage('Valid metal type is required'),
   body('purity').trim().notEmpty().withMessage('Purity is required'),
   body('rate').isFloat({ min: 0 }).withMessage('Rate must be a positive number'),
   body('unit').isIn(['gram', 'kg', 'carat']).withMessage('Valid unit is required')
 ];
 
-// Public routes
-router.get('/', rateController.getRates);
-router.get('/all', rateController.getAllRates); // Get all rates for admin panel
+// ========== PUBLIC ROUTES ==========
+// Get all rates in billing format (for billing.js and exchange.js)
+router.get('/', rateController.getRatesForBilling);
+
+// Get all rates in admin format (array format for admin panel)
+router.get('/all', rateController.getAllRates);
+
+// Get specific rate
 router.get('/:metalType/:purity', rateController.getRate);
 
-// Calculate price
+// Calculate price for billing
 router.post('/calculate', rateController.calculateItemPrice);
+
+// Calculate exchange value (Market Rate - 3%)
 router.post('/calculate-exchange', rateController.calculateExchangePrice);
 
-// Protected routes (admin only)
-router.use(auth);
-router.use(adminOnly);
+// Get exchange rate (Market Rate - 3%) - specific endpoint for exchange.js
+router.get('/exchange-rate/:metalType/:purity', rateController.getExchangeRate);
 
-router.post('/', addRateValidation, rateController.addRate);
-router.put('/:metalType/:purity', updateRateValidation, rateController.updateRate);
-router.put('/:id', updateRateValidation, rateController.updateRateById);
-router.delete('/:id', rateController.deleteRate);
-router.get('/history/:metalType', rateController.getRateHistory);
+// ========== PROTECTED ROUTES (ADMIN ONLY) ==========
+router.use(auth);
+
+// Add new rate (admin only)
+router.post('/', adminOnly, addRateValidation, rateController.addRate);
+
+// Update rate by metal type and purity (admin only)
+router.put('/:metalType/:purity', adminOnly, updateRateValidation, rateController.updateRateByMetal);
+
+// Update rate by ID (admin only)
+router.put('/update/:id', adminOnly, updateRateValidation, rateController.updateRateById);
+
+// Bulk update rates (admin only)
+router.post('/bulk-update', adminOnly, rateController.bulkUpdateRates);
+
+// Delete rate (admin only)
+router.delete('/:id', adminOnly, rateController.deleteRate);
+
+// Get rate history (admin only)
+router.get('/history/:metalType', adminOnly, rateController.getRateHistory);
+
+// Get all rate history (admin only)
+router.get('/history', adminOnly, rateController.getAllRateHistory);
 
 module.exports = router;
