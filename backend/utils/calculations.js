@@ -1,189 +1,156 @@
-// backend/utils/calculations.js
-/**
- * Jewellery Calculation Utilities
- * Strictly follows business rules
- */
-
-const Rate = require('../models/Rate');
-
-// Validation function to check if all required rates exist
-async function validateRates(items) {
-  const missingRates = [];
+// utils/calculations.js
+const numberToWords = (num) => {
+  const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+  const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
   
-  for (const item of items) {
-    // Skip exchange items for rate validation (they use exchange rate logic)
-    if (item.isExchange) continue;
-    
-    const rate = await Rate.findOne({
-      metalType: item.metalType,
-      purity: item.purity
-    }).sort({ effectiveDate: -1 });
-    
-    if (!rate) {
-      missingRates.push(`${item.metalType} - ${item.purity}`);
+  const rupees = Math.floor(num);
+  const paise = Math.round((num - rupees) * 100);
+  
+  if (rupees === 0 && paise === 0) {
+    return 'Zero Rupees Only';
+  }
+  
+  let words = '';
+  
+  // Convert rupees
+  if (rupees > 0) {
+    // Convert crore part
+    if (rupees >= 10000000) {
+      const crore = Math.floor(rupees / 10000000);
+      words += convertNumberToWords(crore) + ' Crore ';
+      rupees %= 10000000;
     }
+    
+    // Convert lakh part
+    if (rupees >= 100000) {
+      const lakh = Math.floor(rupees / 100000);
+      words += convertNumberToWords(lakh) + ' Lakh ';
+      rupees %= 100000;
+    }
+    
+    // Convert thousand part
+    if (rupees >= 1000) {
+      const thousand = Math.floor(rupees / 1000);
+      words += convertNumberToWords(thousand) + ' Thousand ';
+      rupees %= 1000;
+    }
+    
+    // Convert hundred part
+    if (rupees >= 100) {
+      const hundred = Math.floor(rupees / 100);
+      words += convertNumberToWords(hundred) + ' Hundred ';
+      rupees %= 100;
+    }
+    
+    // Convert tens and units
+    if (rupees > 0) {
+      if (words !== '') words += 'and ';
+      words += convertNumberToWords(rupees) + ' ';
+    }
+    
+    words += 'Rupees';
   }
   
-  return missingRates;
-}
+  // Convert paise
+  if (paise > 0) {
+    if (words !== '') words += ' and ';
+    words += convertNumberToWords(paise) + ' Paise';
+  }
+  
+  return words + ' Only';
+};
 
-// Calculate new item value (for purchase items)
-function calculateNewItem(itemData) {
-  const {
-    qty,
-    ntWt, // Net weight (Gr.Wt - Less)
-    rate,
-    mk,
-    mkCrg,
-    disMk, // Discount on making %
-    huCrg
-  } = itemData;
+const convertNumberToWords = (num) => {
+  const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+  const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
   
-  // Metal value = Net weight × Rate × Quantity
-  let metalValue = ntWt * rate * qty;
+  if (num < 10) return units[num];
+  if (num < 20) return teens[num - 10];
+  if (num < 100) {
+    const ten = Math.floor(num / 10);
+    const unit = num % 10;
+    return tens[ten] + (unit > 0 ? ' ' + units[unit] : '');
+  }
+  return '';
+};
+
+const calculateNetWeight = (grWt, less) => {
+  return Math.max(0, (grWt || 0) - (less || 0));
+};
+
+const calculateMetalValue = (netWeight, rate, quantity = 1) => {
+  return (netWeight || 0) * (rate || 0) * (quantity || 1);
+};
+
+const calculateMakingCharges = (mkType, mkCrg, metalValue, netWeight, quantity = 1, disMk = 0) => {
+  let makingCharges = 0;
   
-  // Making charge calculation
-  let makingValue = 0;
-  if (mk === 'FIX') {
-    // Fixed making charge
-    makingValue = mkCrg * qty;
-  } else if (mk === '%') {
-    // Percentage making charge on metal value
-    makingValue = metalValue * (mkCrg / 100);
-  } else if (mk === 'GRM') {
-    // Making charge per gram
-    makingValue = ntWt * mkCrg * qty;
+  switch (mkType) {
+    case 'FIX':
+      makingCharges = (mkCrg || 0) * (quantity || 1);
+      break;
+    case '%':
+      makingCharges = (metalValue * (mkCrg || 0)) / 100;
+      break;
+    case 'GRM':
+      makingCharges = (netWeight || 0) * (mkCrg || 0) * (quantity || 1);
+      break;
+    default:
+      makingCharges = mkCrg || 0;
   }
   
-  // Apply discount on making
+  // Apply discount on making charges
   if (disMk > 0) {
-    makingValue = makingValue - (makingValue * disMk / 100);
+    makingCharges = makingCharges - (makingCharges * disMk / 100);
   }
   
-  // Add HUID charge
-  const huidCharge = huCrg * qty;
-  
-  // Total item value
-  const totalValue = metalValue + makingValue + huidCharge;
-  
-  return {
-    metalValue: parseFloat(metalValue.toFixed(2)),
-    makingValue: parseFloat(makingValue.toFixed(2)),
-    huidCharge: parseFloat(huidCharge.toFixed(2)),
-    totalValue: parseFloat(totalValue.toFixed(2))
-  };
-}
+  return Math.max(0, makingCharges);
+};
 
-// Calculate exchange item value (BUSINESS RULE: Market Rate - 3%)
-function calculateExchangeItem(itemData, currentRate) {
-  const {
-    qty,
-    ntWt, // Net weight
-    wastage, // Wastage percentage
-    meltingCharges // Fixed melting charges
-  } = itemData;
-  
-  // Exchange rate = Current rate - 3%
-  const exchangeRate = currentRate * 0.97;
-  
-  // Apply wastage deduction (percentage)
-  const wastageDeduction = (wastage / 100) * ntWt;
-  const effectiveWeight = ntWt - wastageDeduction;
-  
-  // Calculate metal value after wastage
-  let exchangeValue = effectiveWeight * exchangeRate * qty;
-  
-  // Deduct melting charges
-  exchangeValue -= meltingCharges;
-  
-  // Ensure value doesn't go negative
-  exchangeValue = Math.max(0, exchangeValue);
-  
-  return {
-    metalValue: 0, // No metal value for exchange items in purchase
-    makingValue: 0, // No making charges for exchange items
-    exchangeValue: parseFloat(exchangeValue.toFixed(2)),
-    totalValue: parseFloat(exchangeValue.toFixed(2)) // For exchange items, total = exchange value
-  };
-}
+const calculateExchangeValue = (item, marketRate) => {
+  const netWeight = calculateNetWeight(item.grWt || 0, item.less || 0);
+  const exchangeRate = (marketRate || 0) * 0.97; // 3% deduction
+  const wastageDeduction = (item.wastage || 0) / 100 * netWeight;
+  const effectiveWeight = netWeight - wastageDeduction;
+  const exchangeValue = effectiveWeight * exchangeRate * (item.qty || 1);
+  return Math.max(0, exchangeValue - (item.meltingCharges || 0));
+};
 
-// Calculate GST (BUSINESS RULE: Only 3% on new items, NO GST on making)
-function calculateGST(items) {
-  let taxableValue = 0;
+const calculateGST = (metalValue, makingCharges, gstOnMetal = 3, gstOnMaking = 5, isIntraState = true) => {
+  const gstOnMetalAmount = (metalValue * gstOnMetal) / 100;
+  const gstOnMakingAmount = (makingCharges * gstOnMaking) / 100;
   
-  // Only new items (not exchange) contribute to taxable value
-  for (const item of items) {
-    if (!item.isExchange) {
-      // GST is ONLY on metal value (BUSINESS RULE)
-      taxableValue += item.metalValue;
-    }
-  }
-  
-  // GST = 3% of taxable value
-  const gstAmount = taxableValue * 0.03;
-  const cgst = gstAmount / 2;
-  const sgst = gstAmount / 2;
-  
-  return {
-    taxableValue: parseFloat(taxableValue.toFixed(2)),
-    gstAmount: parseFloat(gstAmount.toFixed(2)),
-    cgst: parseFloat(cgst.toFixed(2)),
-    sgst: parseFloat(sgst.toFixed(2))
-  };
-}
-
-// Calculate bill summary
-function calculateBillSummary(items) {
-  let metalValue = 0;
-  let makingValue = 0;
-  let exchangeValue = 0;
-  let subTotal = 0;
-  
-  for (const item of items) {
-    if (item.isExchange) {
-      exchangeValue += item.totalValue;
-    } else {
-      metalValue += item.metalValue;
-      makingValue += item.makingValue;
-      subTotal += item.totalValue;
-    }
-  }
-  
-  const gst = calculateGST(items);
-  
-  // Grand total = Subtotal + GST
-  const grandTotal = subTotal + gst.gstAmount;
-  
-  // Balance calculation for exchange
-  let balancePayable = 0;
-  let balanceRefundable = 0;
-  
-  if (exchangeValue > 0) {
-    if (grandTotal > exchangeValue) {
-      balancePayable = grandTotal - exchangeValue;
-    } else {
-      balanceRefundable = exchangeValue - grandTotal;
-    }
+  if (isIntraState) {
+    return {
+      totalGST: gstOnMetalAmount + gstOnMakingAmount,
+      gstOnMetalCGST: gstOnMetalAmount / 2,
+      gstOnMetalSGST: gstOnMetalAmount / 2,
+      gstOnMakingCGST: gstOnMakingAmount / 2,
+      gstOnMakingSGST: gstOnMakingAmount / 2,
+      gstOnMetalIGST: 0,
+      gstOnMakingIGST: 0
+    };
   } else {
-    balancePayable = grandTotal;
+    return {
+      totalGST: gstOnMetalAmount + gstOnMakingAmount,
+      gstOnMetalCGST: 0,
+      gstOnMetalSGST: 0,
+      gstOnMakingCGST: 0,
+      gstOnMakingSGST: 0,
+      gstOnMetalIGST: gstOnMetalAmount,
+      gstOnMakingIGST: gstOnMakingAmount
+    };
   }
-  
-  return {
-    metalValue: parseFloat(metalValue.toFixed(2)),
-    makingValue: parseFloat(makingValue.toFixed(2)),
-    exchangeValue: parseFloat(exchangeValue.toFixed(2)),
-    subTotal: parseFloat(subTotal.toFixed(2)),
-    gst: gst,
-    grandTotal: parseFloat(grandTotal.toFixed(2)),
-    balancePayable: parseFloat(balancePayable.toFixed(2)),
-    balanceRefundable: parseFloat(balanceRefundable.toFixed(2))
-  };
-}
+};
 
 module.exports = {
-  validateRates,
-  calculateNewItem,
-  calculateExchangeItem,
+  numberToWords,
+  calculateNetWeight,
+  calculateMetalValue,
+  calculateMakingCharges,
+  calculateExchangeValue,
   calculateGST,
-  calculateBillSummary
+  convertNumberToWords
 };
