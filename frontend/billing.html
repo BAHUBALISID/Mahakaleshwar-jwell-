@@ -56,7 +56,7 @@
             font-size: 16px !important; /* Prevents iOS zoom */
         }
         
-        /* Item row styling */
+        /* Item row styling - Updated for 15+ fields */
         .item-row {
             display: grid;
             gap: 10px;
@@ -67,12 +67,14 @@
             align-items: center;
         }
         
+        /* Regular items grid */
         .item-row:not(.exchange-row) {
-            grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr auto;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr auto;
         }
         
+        /* Exchange items grid */
         .item-row.exchange-row {
-            grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr auto;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr auto;
         }
         
         .item-row input,
@@ -82,6 +84,18 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
+            min-height: 40px;
+        }
+        
+        /* Compact styling for small screens */
+        @media (max-width: 1400px) {
+            .item-row:not(.exchange-row) {
+                grid-template-columns: repeat(8, 1fr) !important;
+            }
+            
+            .item-row.exchange-row {
+                grid-template-columns: repeat(6, 1fr) !important;
+            }
         }
         
         /* Required field indicator */
@@ -96,15 +110,12 @@
             font-size: 0.9em;
         }
         
-        /* Preview modal adjustments */
-        .preview-container {
-            max-width: 100%;
-            overflow-x: auto;
-        }
-        
-        .preview-table {
-            width: 100%;
-            min-width: 600px;
+        /* Field labels inside grid */
+        .field-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            display: block;
         }
         
         /* Loading indicator */
@@ -178,6 +189,86 @@
         .print-close-btn:hover {
             background: #B8860B;
         }
+        
+        /* Compact action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .action-buttons .btn {
+            min-width: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        /* Grid system for billing container */
+        .billing-container {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        @media (max-width: 1200px) {
+            .billing-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Summary grid */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+        }
+        
+        @media (max-width: 1400px) {
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .summary-right {
+                width: 100% !important;
+            }
+        }
+        
+        /* Sticky summary */
+        .summary-right {
+            position: sticky;
+            top: 20px;
+            align-self: start;
+        }
+        
+        /* Scrollable items list */
+        .table-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        
+        /* Hide scrollbar but keep functionality */
+        .table-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body>
@@ -226,7 +317,7 @@
             <div class="customer-section card">
                 <div class="card-header">
                     <h3><i class="fas fa-user"></i> Customer Details</h3>
-                    <button type="button" class="btn btn-outline btn-sm" onclick="billingSystem.clearForm()">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="if (window.billingSystem) window.billingSystem.clearForm()">
                         <i class="fas fa-redo"></i> Clear
                     </button>
                 </div>
@@ -236,22 +327,19 @@
                         <div class="form-group">
                             <label for="customerName" class="required">Full Name</label>
                             <input type="text" id="customerName" name="customer.name" 
-                                   class="form-control" placeholder="Enter customer name" required
-                                   onchange="billingSystem.updateCustomer('name', this.value)">
+                                   class="form-control" placeholder="Enter customer name" required>
                         </div>
                         
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="customerMobile" class="required">Mobile Number</label>
                                 <input type="tel" id="customerMobile" name="customer.mobile" 
-                                       class="form-control" placeholder="10-digit mobile number" required
-                                       onchange="billingSystem.updateCustomer('mobile', this.value)">
+                                       class="form-control" placeholder="10-digit mobile number" required>
                             </div>
                             <div class="form-group">
                                 <label for="customerDOB">Date of Birth <span class="optional">(optional)</span></label>
                                 <input type="date" id="customerDOB" name="customer.dob" 
-                                       class="form-control"
-                                       onchange="billingSystem.updateCustomer('dob', this.value)">
+                                       class="form-control">
                             </div>
                         </div>
                         
@@ -259,22 +347,19 @@
                             <label for="customerAddress">Full Address <span class="optional">(optional)</span></label>
                             <textarea id="customerAddress" name="customer.address" 
                                       class="form-control" rows="3" 
-                                      placeholder="Full address with pin code (optional)"
-                                      onchange="billingSystem.updateCustomer('address', this.value)"></textarea>
+                                      placeholder="Full address with pin code (optional)"></textarea>
                         </div>
                         
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="customerPAN">PAN Number <span class="optional">(optional)</span></label>
                                 <input type="text" id="customerPAN" name="customer.pan" 
-                                       class="form-control" placeholder="ABCDE1234F (optional)"
-                                       onchange="billingSystem.updateCustomer('pan', this.value)">
+                                       class="form-control" placeholder="ABCDE1234F (optional)">
                             </div>
                             <div class="form-group">
                                 <label for="customerAadhaar">Aadhaar Number <span class="optional">(optional)</span></label>
                                 <input type="text" id="customerAadhaar" name="customer.aadhaar" 
-                                       class="form-control" placeholder="12-digit number (optional)"
-                                       onchange="billingSystem.updateCustomer('aadhaar', this.value)">
+                                       class="form-control" placeholder="12-digit number (optional)">
                             </div>
                         </div>
                     </form>
@@ -334,8 +419,8 @@
             </div>
             
             <div class="card-body">
-                <div class="summary-grid" style="display: flex; gap: 30px;">
-                    <div class="summary-left" style="flex: 1;">
+                <div class="summary-grid">
+                    <div class="summary-left">
                         <h5>Items List</h5>
                         <div class="table-container">
                             <table class="table">
@@ -373,7 +458,7 @@
                         </div>
                     </div>
                     
-                    <div class="summary-right" style="width: 400px;">
+                    <div class="summary-right">
                         <div class="summary-box" style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6;">
                             <div class="summary-row">
                                 <span>Metal Value:</span>
@@ -391,18 +476,10 @@
                                 <span>Discount:</span>
                                 <span>
                                     <input type="number" id="discount" class="form-control" 
-                                           value="0" min="0" step="0.01" style="width: 120px; display: inline-block;"
-                                           onchange="billingSystem.updateDiscount(this.value)">
+                                           value="0" min="0" step="0.01" style="width: 120px; display: inline-block;">
                                 </span>
                             </div>
-                            <div class="summary-row">
-                                <span>GST on Metal (3%):</span>
-                                <span id="gstMetal">₹0.00</span>
-                            </div>
-                            <div class="summary-row">
-                                <span>GST on Making (5%):</span>
-                                <span id="gstMaking">₹0.00</span>
-                            </div>
+                            <!-- Removed GST on Making as per BUSINESS RULE: GST is 3% on metal only -->
                             <div class="summary-row total">
                                 <span>Grand Total:</span>
                                 <span id="grandTotal">₹0.00</span>
@@ -429,14 +506,14 @@
                             </div>
                         </div>
                         
-                        <div class="action-buttons" style="display: flex; gap: 15px; margin-top: 20px;">
+                        <div class="action-buttons">
                             <button type="button" class="btn btn-success btn-lg" id="generateBillBtn">
                                 <i class="fas fa-file-invoice"></i> Generate Bill
                             </button>
                             <button type="button" class="btn btn-outline btn-lg" id="printBillBtn" disabled>
                                 <i class="fas fa-print"></i> Print Bill
                             </button>
-                            <button type="button" class="btn btn-secondary btn-lg" onclick="billingSystem.clearForm()">
+                            <button type="button" class="btn btn-secondary btn-lg" onclick="if (window.billingSystem) window.billingSystem.clearForm()">
                                 <i class="fas fa-times"></i> Clear All
                             </button>
                         </div>
@@ -447,8 +524,8 @@
     </div>
 
     <!-- Bill Preview Modal -->
-    <div class="modal" id="billPreviewModal">
-        <div class="modal-content">
+    <div class="modal" id="billPreviewModal" style="display: none;">
+        <div class="modal-content" style="max-width: 1000px;">
             <div class="modal-header">
                 <h3>Bill Preview</h3>
                 <button type="button" class="close" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
@@ -532,13 +609,10 @@
                             <span>Discount:</span>
                             <span id="previewDiscount">₹0.00</span>
                         </div>
+                        <!-- BUSINESS RULE: GST is 3% on metal only -->
                         <div class="summary-row">
                             <span>GST on Metal (3%):</span>
                             <span id="previewGSTMetal">₹0.00</span>
-                        </div>
-                        <div class="summary-row">
-                            <span>GST on Making (5%):</span>
-                            <span id="previewGSTMaking">₹0.00</span>
                         </div>
                         <div id="previewExchangeDetails" style="display: none;">
                             <div class="summary-row">
@@ -570,7 +644,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" onclick="billingSystem.printBill()">
+                <button type="button" class="btn btn-primary" onclick="if (window.billingSystem) window.billingSystem.printBill()">
                     <i class="fas fa-print"></i> Print Bill
                 </button>
                 <button type="button" class="btn btn-outline close">Close</button>
@@ -589,81 +663,72 @@
     <!-- Scripts -->
     <script src="js/auth.js"></script>
     <script>
-        // Mock auth if not available
-        if (!window.auth) {
-            window.auth = {
-                getToken: () => 'mock-token',
-                isAuthenticated: () => true,
-                isStaff: () => true
-            };
-        }
-    </script>
-    <script src="js/billing.js"></script>
-    
-    <!-- Auto-init script -->
-    <script>
+        // Auto-init script
         document.addEventListener('DOMContentLoaded', function() {
-            if (window.auth && window.auth.isAuthenticated && window.auth.isAuthenticated()) {
-                // Initialize billing system
-                window.billingSystem = new BillingSystem();
-                
-                // Setup modal close handlers
-                document.querySelectorAll('.close').forEach(closeBtn => {
-                    closeBtn.addEventListener('click', function() {
-                        document.getElementById('billPreviewModal').classList.remove('show');
+            // Load billing.js
+            const script = document.createElement('script');
+            script.src = 'js/billing.js';
+            script.onload = function() {
+                // Initialize billing system after auth check
+                if (window.auth && window.auth.isAuthenticated && window.auth.isAuthenticated()) {
+                    window.billingSystem = new BillingSystem();
+                    
+                    // Setup modal close handlers
+                    document.querySelectorAll('.close').forEach(closeBtn => {
+                        closeBtn.addEventListener('click', function() {
+                            document.getElementById('billPreviewModal').style.display = 'none';
+                        });
                     });
-                });
-                
-                // Close modal on outside click
-                document.getElementById('billPreviewModal').addEventListener('click', function(e) {
-                    if (e.target === this) {
-                        this.classList.remove('show');
-                    }
-                });
-                
-                // Close print container on outside click
-                document.getElementById('printContainer').addEventListener('click', function(e) {
-                    if (e.target === this) {
-                        this.style.display = 'none';
-                    }
-                });
-                
-                // Handle back button
-                window.addEventListener('popstate', function() {
-                    document.getElementById('billPreviewModal').classList.remove('show');
-                    document.getElementById('printContainer').style.display = 'none';
-                });
-                
-                // Add print styles dynamically for mobile
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                if (isMobile) {
-                    const style = document.createElement('style');
-                    style.textContent = `
-                        @media print {
-                            #printContainer {
-                                display: block !important;
-                                position: static !important;
-                                padding: 0 !important;
-                                background: white !important;
-                            }
-                            
-                            .print-close-btn {
-                                display: none !important;
-                            }
-                            
-                            body > *:not(#printContainer) {
-                                display: none !important;
-                            }
+                    
+                    // Close modal on outside click
+                    document.getElementById('billPreviewModal').addEventListener('click', function(e) {
+                        if (e.target === this) {
+                            this.style.display = 'none';
                         }
-                    `;
-                    document.head.appendChild(style);
+                    });
+                    
+                    // Close print container on outside click
+                    document.getElementById('printContainer').addEventListener('click', function(e) {
+                        if (e.target === this) {
+                            this.style.display = 'none';
+                        }
+                    });
+                    
+                    // Add window resize listener for responsive layout
+                    window.addEventListener('resize', function() {
+                        if (window.billingSystem && window.billingSystem.updateResponsiveLayout) {
+                            window.billingSystem.updateResponsiveLayout();
+                        }
+                    });
+                    
+                    console.log('Billing system initialized successfully');
+                    
+                } else {
+                    // Redirect to login
+                    window.location.href = 'login.html';
                 }
-                
-            } else {
-                // Redirect to login
-                window.location.href = 'login.html';
-            }
+            };
+            script.onerror = function() {
+                console.error('Failed to load billing.js');
+                showAlert('danger', 'Failed to load billing system. Please refresh the page.');
+            };
+            document.body.appendChild(script);
         });
+        
+        // Simple alert function for script errors
+        function showAlert(type, message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            
+            const container = document.getElementById('alertContainer');
+            if (container) {
+                container.appendChild(alertDiv);
+            }
+        }
     </script>
 </body>
 </html>
