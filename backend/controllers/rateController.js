@@ -4,7 +4,7 @@ const { validationResult } = require('express-validator');
 
 class RateController {
     // Get all rates - formatted by metal type and purity
-    async getRates(req, res) {
+    async getRatesForBilling(req, res) {
         try {
             const rates = await Rate.find({})
                 .sort({ metalType: 1, purity: 1 })
@@ -28,12 +28,13 @@ class RateController {
             });
 
             // Fill in empty structure for metals without rates
-            const allMetals = ['Gold', 'Silver', 'Diamond', 'Platinum', 'Others'];
+            const allMetals = ['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others'];
             const defaultPurities = {
                 'Gold': ['24K', '22K', '18K', '14K'],
                 'Silver': ['999', '925', '900', '850', '800'],
                 'Diamond': ['SI1', 'VS1', 'VVS1', 'IF', 'FL'],
                 'Platinum': ['950', '900', '850', '999'],
+                'Antique / Polki': ['Standard'],
                 'Others': ['Standard']
             };
 
@@ -121,6 +122,37 @@ class RateController {
         }
     }
 
+    // Get exchange rate (Market Rate - 3%)
+    async getExchangeRate(req, res) {
+        try {
+            const { metalType, purity } = req.params;
+
+            const rateDoc = await Rate.findOne({ metalType, purity });
+            if (!rateDoc || !rateDoc.rate) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Rate not configured for this metal and purity'
+                });
+            }
+
+            const marketRate = rateDoc.rate;
+            const exchangeRate = marketRate * 0.97;
+
+            res.json({
+                success: true,
+                exchangeRate: exchangeRate,
+                marketRate: marketRate,
+                deductionPercentage: 3
+            });
+        } catch (error) {
+            console.error('Get exchange rate error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get exchange rate'
+            });
+        }
+    }
+
     // Add new rate (admin only)
     async addRate(req, res) {
         try {
@@ -184,7 +216,7 @@ class RateController {
     }
 
     // Update rate by metal type and purity (admin only)
-    async updateRate(req, res) {
+    async updateRateByMetal(req, res) {
         try {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
@@ -338,6 +370,93 @@ class RateController {
         }
     }
 
+    // Bulk update rates (admin only)
+    async bulkUpdateRates(req, res) {
+        try {
+            const { rates } = req.body;
+            
+            if (!Array.isArray(rates) || rates.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Rates array is required'
+                });
+            }
+
+            const results = [];
+            const errors = [];
+
+            for (const rateData of rates) {
+                try {
+                    const { metalType, purity, rate, unit } = rateData;
+
+                    // Find or create rate
+                    let existingRate = await Rate.findOne({ metalType, purity });
+                    const oldRate = existingRate ? existingRate.rate : null;
+
+                    if (!existingRate) {
+                        existingRate = new Rate({
+                            metalType,
+                            purity,
+                            rate,
+                            unit: unit || (metalType === 'Diamond' ? 'carat' : 'gram'),
+                            effectiveDate: new Date(),
+                            updatedBy: req.user._id
+                        });
+                    } else {
+                        existingRate.rate = rate;
+                        if (unit) existingRate.unit = unit;
+                        existingRate.effectiveDate = new Date();
+                        existingRate.updatedBy = req.user._id;
+                        existingRate.updatedAt = Date.now();
+                    }
+
+                    await existingRate.save();
+
+                    // Create rate history entry
+                    const rateHistory = new RateHistory({
+                        rateId: existingRate._id,
+                        metalType,
+                        purity,
+                        oldRate,
+                        newRate: rate,
+                        unit: existingRate.unit,
+                        effectiveDate: existingRate.effectiveDate,
+                        updatedBy: req.user._id
+                    });
+
+                    await rateHistory.save();
+
+                    results.push({
+                        metalType,
+                        purity,
+                        success: true,
+                        rate: existingRate.rate,
+                        unit: existingRate.unit
+                    });
+                } catch (error) {
+                    errors.push({
+                        metalType: rateData.metalType,
+                        purity: rateData.purity,
+                        error: error.message
+                    });
+                }
+            }
+
+            res.json({
+                success: true,
+                message: `Updated ${results.length} rates${errors.length > 0 ? `, ${errors.length} failed` : ''}`,
+                results: results,
+                errors: errors
+            });
+        } catch (error) {
+            console.error('Bulk update rates error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to bulk update rates'
+            });
+        }
+    }
+
     // Delete rate (admin only)
     async deleteRate(req, res) {
         try {
@@ -384,6 +503,40 @@ class RateController {
             });
         } catch (error) {
             console.error('Get rate history error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch rate history'
+            });
+        }
+    }
+
+    // Get all rate history (admin only)
+    async getAllRateHistory(req, res) {
+        try {
+            const { page = 1, limit = 50, metalType } = req.query;
+            
+            const query = {};
+            if (metalType) {
+                query.metalType = metalType;
+            }
+            
+            const history = await RateHistory.find(query)
+                .sort({ effectiveDate: -1 })
+                .populate('updatedBy', 'name email')
+                .skip((page - 1) * limit)
+                .limit(parseInt(limit));
+
+            const total = await RateHistory.countDocuments(query);
+
+            res.json({
+                success: true,
+                history: history,
+                total: total,
+                page: parseInt(page),
+                totalPages: Math.ceil(total / limit)
+            });
+        } catch (error) {
+            console.error('Get all rate history error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Failed to fetch rate history'
