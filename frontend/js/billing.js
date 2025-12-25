@@ -34,6 +34,26 @@ class BillingSystem {
         this.loadDefaultRates();
     }
 
+    async loadDefaultRates() {
+    try {
+        const response = await fetch(`${this.apiBase}/rates`, {
+            headers: {
+                'Authorization': `Bearer ${this.token}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                // Store rates for reference
+                this.rates = data.rates;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load rates:', error);
+    }
+}
+    
     setupEventListeners() {
         // Customer form listeners
         document.getElementById('customerName')?.addEventListener('change', (e) => {
