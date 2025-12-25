@@ -56,7 +56,7 @@ router.post('/bulk-update', adminOnly, rateController.bulkUpdateRates);
 // Delete rate (admin only)
 router.delete('/:id', adminOnly, rateController.deleteRate);
 
-// Get rate history (admin only)
+// Get rate history for specific metal (admin only)
 router.get('/history/:metalType', adminOnly, rateController.getRateHistory);
 
 // Get all rate history (admin only)
