@@ -7,6 +7,168 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 4px;
+        }
+        
+        .badge-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .badge-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .ml-1 {
+            margin-left: 4px;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #dee2e6;
+            color: #333;
+        }
+        
+        .btn-outline:hover {
+            background: #f8f9fa;
+        }
+        
+        .btn-outline.btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .alert {
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 4px;
+            border-left: 4px solid;
+            position: relative;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            border-color: #17a2b8;
+            color: #0c5460;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        
+        .alert .close {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        
+        .alert-dismissible {
+            padding-right: 40px;
+        }
+        
+        .alert.fade {
+            transition: opacity 0.15s linear;
+        }
+        
+        .alert.show {
+            opacity: 1;
+        }
+        
+        #dashboardLoading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        #dashboardLoading .spinner {
+            width: 40px;
+            height: 40px;
+            border-width: 3px;
+        }
+        
+        #dashboardLoading p {
+            margin-top: 16px;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
     <!-- Navigation -->
@@ -36,8 +198,14 @@
         </div>
     </nav>
 
+    <!-- Loading Overlay -->
+    <div id="dashboardLoading">
+        <div class="spinner"></div>
+        <p>Loading dashboard data...</p>
+    </div>
+
     <!-- Main Container -->
-    <div class="main-container">
+    <div class="main-container" id="dashboardContent">
         <div class="page-header">
             <h2><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
             <p>Business intelligence and system management</p>
@@ -91,7 +259,7 @@
                 <div class="stat-content">
                     <div class="stat-label">Total Sales</div>
                     <div class="stat-value" id="totalSales">₹0</div>
-                    <div class="stat-change" id="salesGrowth">+0%</div>
+                    <div class="stat-change" id="salesGrowth">+0% vs last month</div>
                 </div>
             </div>
             
@@ -134,11 +302,6 @@
             <div class="chart-container">
                 <div class="chart-header">
                     <h4><i class="fas fa-chart-line"></i> Sales Trend</h4>
-                    <select class="form-control" style="width: auto;">
-                        <option>Last 7 Days</option>
-                        <option>Last 30 Days</option>
-                        <option>Last 90 Days</option>
-                    </select>
                 </div>
                 <canvas id="salesTrendChart" height="250"></canvas>
             </div>
@@ -163,7 +326,10 @@
                 <span class="insight-time" id="insightTime">Generated just now</span>
             </div>
             <div id="aiInsights">
-                <div class="loading">Loading AI insights...</div>
+                <div class="insight-section">
+                    <h4><i class="fas fa-lightbulb"></i> Loading Insights</h4>
+                    <p>Loading AI insights...</p>
+                </div>
             </div>
         </div>
 
@@ -232,16 +398,6 @@
             </div>
         </div>
 
-        <!-- Customer Insights -->
-        <div class="customer-insights">
-            <div class="section-title">
-                <h3><i class="fas fa-user-tie"></i> Customer Insights</h3>
-            </div>
-            <div id="customerInsights">
-                <div class="loading">Loading customer data...</div>
-            </div>
-        </div>
-
         <!-- System Status -->
         <div class="system-status">
             <div class="section-title">
@@ -295,10 +451,10 @@
                         <thead>
                             <tr>
                                 <th>Metal Type</th>
+                                <th>Purity</th>
                                 <th>Rate (per unit)</th>
                                 <th>Unit</th>
                                 <th>Per Gram/Carat</th>
-                                <th>Purity Levels</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -691,7 +847,7 @@
             color: #333;
         }
         
-        .recent-activity, .customer-insights, .system-status {
+        .recent-activity, .system-status {
             background: white;
             padding: 25px;
             border-radius: 8px;
@@ -774,6 +930,95 @@
             color: #333;
         }
         
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .rate-input {
+            width: 120px;
+        }
+        
         @media (max-width: 768px) {
             .charts-row {
                 grid-template-columns: 1fr;
@@ -791,6 +1036,14 @@
             .action-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
+            
+            .time-filters {
+                flex-direction: column;
+            }
+            
+            .modal-content {
+                width: 95%;
+            }
         }
     </style>
 
@@ -800,26 +1053,18 @@
     <script src="js/admin.js"></script>
     
     <script>
-        // Modal close handlers
-        document.querySelectorAll('.modal .close').forEach(closeBtn => {
-            closeBtn.addEventListener('click', function() {
-                this.closest('.modal').classList.remove('show');
-            });
-        });
-        
-        // Close modal on outside click
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('show');
-                }
-            });
+        // Initialize dashboard when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // This will be handled by admin.js
         });
         
         // Show add user modal
         function showAddUserModal() {
-            document.getElementById('usersModal').classList.remove('show');
-            document.getElementById('addUserModal').classList.add('show');
+            const usersModal = document.getElementById('usersModal');
+            const addUserModal = document.getElementById('addUserModal');
+            
+            if (usersModal) usersModal.classList.remove('show');
+            if (addUserModal) addUserModal.classList.add('show');
         }
         
         // Add new user
@@ -846,8 +1091,10 @@
                 
                 if (data.success) {
                     showAlert('success', 'User added successfully');
-                    document.getElementById('addUserModal').classList.remove('show');
-                    document.getElementById('addUserForm').reset();
+                    const addUserModal = document.getElementById('addUserModal');
+                    if (addUserModal) addUserModal.classList.remove('show');
+                    const addUserForm = document.getElementById('addUserForm');
+                    if (addUserForm) addUserForm.reset();
                     
                     // Refresh users list
                     if (window.adminDashboard) {
@@ -865,17 +1112,66 @@
         // Show alert function
         function showAlert(type, message) {
             const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type}`;
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
             alertDiv.innerHTML = `
                 ${message}
                 <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
             `;
             
             const container = document.getElementById('alertContainer');
-            container.appendChild(alertDiv);
-            
-            setTimeout(() => alertDiv.remove(), 5000);
+            if (container) {
+                container.appendChild(alertDiv);
+                
+                // Auto remove after 5 seconds
+                setTimeout(() => {
+                    if (alertDiv.parentElement) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
+            }
         }
+        
+        // Modal close handlers (for modals that aren't managed by admin.js)
+        document.querySelectorAll('.modal .close').forEach(closeBtn => {
+            closeBtn.addEventListener('click', function() {
+                const modal = this.closest('.modal');
+                if (modal) modal.classList.remove('show');
+            });
+        });
+        
+        // Close modal on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
+        
+        // Global functions for admin.js
+        window.showBillDetails = (billId) => {
+            if (window.adminDashboard) {
+                window.adminDashboard.showBillDetails(billId);
+            }
+        };
+        
+        window.saveRate = (metalType, purity, rateId) => {
+            if (window.adminDashboard) {
+                window.adminDashboard.saveRate(metalType, purity, rateId);
+            }
+        };
+        
+        window.editUser = (userId) => {
+            if (window.adminDashboard) {
+                window.adminDashboard.editUser(userId);
+            }
+        };
+        
+        window.deleteUser = (userId) => {
+            if (window.adminDashboard) {
+                window.adminDashboard.deleteUser(userId);
+            }
+        };
     </script>
 </body>
 </html>
