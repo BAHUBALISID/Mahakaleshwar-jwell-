@@ -1,33 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const { body } = require('express-validator');
 const authController = require('../controllers/authController');
-const { auth, adminOnly } = require('../middleware/auth');
-
-// Validation rules
-const registerValidation = [
-  body('name').trim().notEmpty().withMessage('Name is required'),
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('mobile').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit mobile number is required')
-];
-
-const loginValidation = [
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('password').notEmpty().withMessage('Password is required')
-];
+const { auth, adminAuth } = require('../middleware/auth');
 
 // Public routes
-router.post('/register', registerValidation, authController.register);
-router.post('/login', loginValidation, authController.login);
+router.post('/login', authController.login);
 
 // Protected routes
 router.get('/profile', auth, authController.getProfile);
 router.put('/profile', auth, authController.updateProfile);
 router.put('/change-password', auth, authController.changePassword);
 
-// Admin only routes
-router.get('/users', auth, adminOnly, authController.getAllUsers);
-router.put('/users/:userId/status', auth, adminOnly, authController.updateUserStatus);
+// Admin routes
+router.post('/register', adminAuth, authController.register);
+router.get('/users', adminAuth, authController.getUsers);
+router.get('/users/:id', adminAuth, authController.getUser);
+router.put('/users/:id', adminAuth, authController.updateUser);
+router.delete('/users/:id', adminAuth, authController.deleteUser);
+router.put('/users/:id/status', adminAuth, authController.toggleUserStatus);
+router.post('/users/:id/reset-password', adminAuth, authController.resetPassword);
 
 module.exports = router;
