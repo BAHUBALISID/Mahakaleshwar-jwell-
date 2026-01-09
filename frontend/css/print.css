@@ -1,296 +1,252 @@
-/* Print-specific styles for invoice */
+/* Print Styles for Bills and Reports */
 
 @media print {
-  @page {
-    size: A4;
-    margin: 10mm;
-  }
-
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 12pt;
-    line-height: 1.4;
-    color: #000;
-    background: #fff !important;
-    margin: 0;
-    padding: 0;
-    width: 100%;
-  }
-
-  /* Hide everything except print container */
-  body * {
-    display: none !important;
-  }
-
-  .print-container,
-  .print-container * {
-    display: block !important;
-    visibility: visible !important;
-  }
-
-  .print-container {
-    width: 100%;
-    min-height: auto;
-    margin: 0;
-    padding: 0;
-    background: white;
-    position: static;
-  }
-
-  /* Invoice Container - responsive */
-  .invoice-container {
-    width: 100%;
-    max-width: 210mm;
-    margin: 0 auto;
-    padding: 5mm;
-    background: #fff;
-    box-shadow: none;
-    border: none;
-    page-break-inside: avoid;
-    page-break-after: auto;
-    page-break-before: auto;
-  }
-
-  /* Header */
-  .shop-name {
-    font-size: 20pt;
-    font-weight: bold;
-    color: #D4AF37;
-    text-align: center;
-    margin: 5mm 0 2mm 0;
-  }
-
-  .shop-address,
-  .shop-contact {
-    font-size: 10pt;
-    text-align: center;
-    margin: 1mm 0;
-    color: #666;
-  }
-
-  /* Bill Info */
-  .bill-info {
-    display: block;
-    margin: 5mm 0;
-    padding: 3mm;
-    background: #f8f9fa;
-    border-radius: 1mm;
-    font-size: 10pt;
-  }
-
-  .bill-info > div {
-    margin-bottom: 2mm;
-  }
-
-  /* Customer Info */
-  .customer-info {
-    margin: 5mm 0;
-    padding: 3mm;
-    border: 0.5pt solid #dee2e6;
-    border-radius: 1mm;
-    font-size: 10pt;
-  }
-
-  .customer-info h3 {
-    color: #D4AF37;
-    margin: 0 0 2mm 0;
-    font-size: 11pt;
-  }
-
-  /* Items Table */
-  .items-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 5mm 0;
-    font-size: 10pt;
-  }
-
-  .items-table th {
-    background: #D4AF37 !important;
-    color: white !important;
-    padding: 2mm;
-    text-align: left;
-    border: 0.5pt solid #B8860B;
-    font-weight: bold;
-    -webkit-print-color-adjust: exact;
-  }
-
-  .items-table td {
-    padding: 1.5mm;
-    border: 0.5pt solid #dee2e6;
-  }
-
-  .items-table .total-row {
-    background: #f8f9fa !important;
-    font-weight: bold;
-    -webkit-print-color-adjust: exact;
-  }
-
-  /* Calculations */
-  .calculations {
-    width: 100%;
-    margin: 5mm 0;
-    float: none;
-  }
-
-  .calc-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 1mm 0;
-    border-bottom: 0.5pt dashed #ddd;
-    font-size: 10pt;
-  }
-
-  .calc-row.total {
-    font-size: 12pt;
-    font-weight: bold;
-    color: #D4AF37;
-    border-top: 1pt solid #D4AF37;
-    border-bottom: none;
-    margin-top: 2mm;
-    padding-top: 2mm;
-  }
-
-  /* Amount in Words */
-  .amount-words {
-    clear: both;
-    margin: 5mm 0;
-    padding: 3mm;
-    border: 0.5pt solid #dee2e6;
-    border-radius: 1mm;
-    font-style: italic;
-    font-size: 10pt;
-  }
-
-  /* QR Codes */
-  .qr-codes {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: 5mm 0;
-    padding-top: 5mm;
-    border-top: 0.5pt solid #dee2e6;
-  }
-
-  .qr-box {
-    text-align: center;
-    margin-bottom: 3mm;
-    width: 100%;
-  }
-
-  .qr-box img {
-    width: 40mm !important;
-    height: 40mm !important;
-    max-width: 40mm;
-    max-height: 40mm;
-  }
-
-  /* Footer */
-  .invoice-footer {
-    margin: 5mm 0 0 0;
-    padding-top: 3mm;
-    border-top: 0.5pt solid #dee2e6;
-    font-size: 9pt;
-    color: #666;
-  }
-
-  .signature {
-    display: flex;
-    justify-content: space-between;
-    margin: 5mm 0;
-  }
-
-  .signature-box {
-    text-align: center;
-    width: 48%;
-  }
-
-  .signature-line {
-    width: 60mm;
-    border-top: 0.5pt solid #000;
-    margin: 3mm auto 1mm;
-  }
-
-  /* Page break helpers */
-  .page-break {
-    page-break-before: always;
-  }
-
-  .keep-together {
-    page-break-inside: avoid;
-  }
-
-  /* Force black and white for better printing */
-  * {
-    -webkit-print-color-adjust: exact !important;
-    color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Avoid breaking inside important elements */
-  table {
-    page-break-inside: avoid;
-  }
-
-  tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
-  }
-
-  /* Optimize for mobile printing */
-  @media (max-width: 480px) {
-    .invoice-container {
-      padding: 2mm;
+    /* Hide unnecessary elements */
+    .no-print,
+    .header,
+    .sidebar,
+    .footer,
+    .nav-menu,
+    .btn,
+    button,
+    .form-actions,
+    .final-actions,
+    .modal,
+    .qr-section,
+    .exchange-warning,
+    .gst-warning {
+        display: none !important;
     }
-    
-    .shop-name {
-      font-size: 16pt;
+
+    /* Reset body */
+    body {
+        background: white !important;
+        color: black !important;
+        font-size: 12pt !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
-    
-    .items-table {
-      font-size: 9pt;
+
+    .container {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
-    
-    .qr-box img {
-      width: 30mm !important;
-      height: 30mm !important;
+
+    /* Main content takes full width */
+    .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
     }
-  }
+
+    /* Card styling for print */
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+        margin: 0 0 20px 0 !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .card-header {
+        background: #f8f9fa !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000 !important;
+    }
+
+    .card-body {
+        padding: 10px !important;
+    }
+
+    /* Table styling */
+    .data-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 10pt !important;
+    }
+
+    .data-table th {
+        background: #f8f9fa !important;
+        color: #000 !important;
+        border: 1px solid #000 !important;
+        padding: 4px !important;
+        font-weight: bold !important;
+    }
+
+    .data-table td {
+        border: 1px solid #000 !important;
+        padding: 4px !important;
+    }
+
+    /* Form elements hide */
+    input, select, textarea {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    input[readonly],
+    select[disabled] {
+        appearance: none !important;
+        -webkit-appearance: none !important;
+    }
+
+    /* Bill header for print */
+    .print-header {
+        display: block !important;
+        text-align: center !important;
+        margin-bottom: 20px !important;
+        padding-bottom: 10px !important;
+        border-bottom: 3px double #000 !important;
+    }
+
+    .print-header .logo {
+        font-size: 24pt !important;
+        font-weight: bold !important;
+        color: #000 !important;
+    }
+
+    .print-header h1 {
+        font-size: 16pt !important;
+        margin: 5px 0 !important;
+        color: #000 !important;
+    }
+
+    .print-header .tagline {
+        font-size: 10pt !important;
+        font-style: italic !important;
+        margin: 5px 0 !important;
+    }
+
+    /* Summary box */
+    .bill-summary {
+        border: 2px solid #000 !important;
+        padding: 15px !important;
+        margin-top: 20px !important;
+        page-break-inside: avoid;
+    }
+
+    .summary-item {
+        display: flex !important;
+        justify-content: space-between !important;
+        margin: 5px 0 !important;
+    }
+
+    .summary-item.grand-total {
+        border-top: 2px solid #000 !important;
+        padding-top: 10px !important;
+        margin-top: 10px !important;
+        font-weight: bold !important;
+        font-size: 14pt !important;
+    }
+
+    /* QR code for print */
+    .print-qr {
+        display: block !important;
+        text-align: center !important;
+        margin: 20px auto !important;
+        page-break-inside: avoid;
+    }
+
+    .print-qr img {
+        width: 150px !important;
+        height: 150px !important;
+        border: 1px solid #000 !important;
+    }
+
+    /* Terms and conditions */
+    .print-terms {
+        font-size: 8pt !important;
+        margin-top: 30px !important;
+        border-top: 1px solid #000 !important;
+        padding-top: 10px !important;
+    }
+
+    /* Page breaks */
+    .page-break {
+        page-break-before: always !important;
+    }
+
+    /* Avoid breaking inside important elements */
+    .calculation-summary,
+    .summary-container {
+        page-break-inside: avoid !important;
+    }
+
+    /* Font sizes */
+    h1, h2, h3, h4, h5, h6 {
+        color: #000 !important;
+    }
+
+    h3 {
+        font-size: 14pt !important;
+    }
+
+    /* Hide images in print unless specified */
+    img:not(.print-qr img) {
+        display: none !important;
+    }
+
+    /* Show print-only elements */
+    .print-only {
+        display: block !important;
+    }
+
+    /* Watermark for draft */
+    .draft-watermark {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) rotate(-45deg) !important;
+        font-size: 72pt !important;
+        color: rgba(0, 0, 0, 0.1) !important;
+        z-index: 9999 !important;
+        pointer-events: none !important;
+    }
 }
 
-/* Screen styles for print preview (optional) */
-@media screen {
-  .print-container {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: white;
-    z-index: 9999;
-    overflow-y: auto;
-    padding: 20px;
-  }
-  
-  .print-container .invoice-container {
-    max-width: 210mm;
-    margin: 0 auto;
-    padding: 20mm;
-    background: white;
-    box-shadow: 0 0 20px rgba(0,0,0,0.1);
-  }
-  
-  .print-close-btn {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #D4AF37;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    z-index: 10000;
-  }
+/* Page size for A4 */
+@page {
+    size: A4;
+    margin: 15mm;
+}
+
+/* For portrait orientation */
+@page portrait {
+    size: portrait;
+}
+
+/* For landscape orientation */
+@page landscape {
+    size: landscape;
+}
+
+/* Specific styles for bill printing */
+@media print and (width: 210mm) and (height: 297mm) {
+    .print-header {
+        margin-bottom: 10mm !important;
+    }
+    
+    .card {
+        margin-bottom: 5mm !important;
+    }
+}
+
+/* Hide URL and page info */
+@page {
+    @bottom-right {
+        content: "Shree Mahakaleshwar Jewellers";
+        font-size: 8pt;
+        color: #666;
+    }
+    
+    @bottom-left {
+        content: "Page " counter(page) " of " counter(pages);
+        font-size: 8pt;
+        color: #666;
+    }
 }
