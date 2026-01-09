@@ -1,22 +1,25 @@
 const Bill = require('../models/Bill');
+const moment = require('moment');
 
 const generateBillNumber = async () => {
-  const currentYear = new Date().getFullYear();
-  const prefix = `JBL/${currentYear.toString().substr(-2)}/`;
-  
-  const lastBill = await Bill.findOne({ billNumber: new RegExp(`^${prefix}`) })
-    .sort({ billNumber: -1 })
-    .exec();
-  
-  let sequence = 1;
-  if (lastBill && lastBill.billNumber) {
-    const lastSequence = parseInt(lastBill.billNumber.split('/').pop());
-    if (!isNaN(lastSequence)) {
-      sequence = lastSequence + 1;
+  try {
+    const today = moment().format('DDMMYY');
+    const lastBill = await Bill.findOne({
+      billNumber: new RegExp(`^SMJ/${today}/`)
+    }).sort({ billNumber: -1 });
+    
+    let sequence = '001';
+    if (lastBill) {
+      const lastSequence = parseInt(lastBill.billNumber.split('/')[2]);
+      sequence = String(lastSequence + 1).padStart(3, '0');
     }
+    
+    return `SMJ/${today}/${sequence}`;
+  } catch (error) {
+    console.error('Error generating bill number:', error);
+    // Fallback to timestamp based number
+    return `SMJ/${moment().format('DDMMYY')}/${Date.now().toString().slice(-3)}`;
   }
-  
-  return `${prefix}${sequence.toString().padStart(5, '0')}`;
 };
 
-module.exports = generateBillNumber;
+module.exports = { generateBillNumber };
