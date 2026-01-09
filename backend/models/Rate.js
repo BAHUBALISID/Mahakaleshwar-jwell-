@@ -1,11 +1,10 @@
-// backend/models/Rate.js
 const mongoose = require('mongoose');
 
 const RateSchema = new mongoose.Schema({
   metalType: {
     type: String,
     required: true,
-    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Others']
+    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others']
   },
   purity: {
     type: String,
@@ -16,12 +15,20 @@ const RateSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  gstApplicable: {
+    type: Boolean,
+    default: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   unit: {
     type: String,
-    required: true,
-    enum: ['gram', 'kg', 'carat']
+    default: 'per gram',
+    enum: ['per gram', 'per kg', 'per carat', 'per piece']
   },
-  effectiveDate: {
+  lastUpdated: {
     type: Date,
     default: Date.now
   },
@@ -33,7 +40,13 @@ const RateSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index for metal type and purity
+// Compound index for unique metal+purity combination
 RateSchema.index({ metalType: 1, purity: 1 }, { unique: true });
+
+RateSchema.methods.toJSON = function() {
+  const rate = this.toObject();
+  delete rate.__v;
+  return rate;
+};
 
 module.exports = mongoose.model('Rate', RateSchema);
