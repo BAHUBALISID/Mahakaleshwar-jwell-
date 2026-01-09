@@ -1,57 +1,73 @@
-const calculateNetWeight = (grossWeight, lessWeight) => {
-  return grossWeight - lessWeight;
-};
-
-const calculateItemValue = (item) => {
-  let itemValue = 0;
+const calculateItemTotal = (item, isExchange = false) => {
+  let total = 0;
   
   // Calculate metal value
   const metalValue = item.netWeight * item.rate;
   
-  // Calculate making charges
-  let makingCharges = 0;
+  // Calculate making charge
+  let makingCharge = 0;
   switch (item.makingChargeType) {
     case 'FIX':
-      makingCharges = item.makingChargesValue;
+      makingCharge = item.makingChargeValue;
       break;
     case '%':
-      makingCharges = (metalValue * item.makingChargesValue) / 100;
+      makingCharge = (metalValue * item.makingChargeValue) / 100;
       break;
     case 'GRM':
-      makingCharges = item.netWeight * item.makingChargesValue;
+      makingCharge = item.netWeight * item.makingChargeValue;
       break;
   }
   
   // Apply discount on making
-  makingCharges -= item.discountOnMaking;
-  if (makingCharges < 0) makingCharges = 0;
+  makingCharge = Math.max(0, makingCharge - item.discountOnMaking);
   
-  // Calculate total item value
-  itemValue = metalValue + makingCharges + item.otherCharges;
+  // Add other charges
+  total = metalValue + makingCharge + (item.otherCharges || 0);
+  
+  // Apply exchange deduction if applicable
+  if (isExchange) {
+    const exchangeDeduction = total * 0.03; // Fixed 3% deduction
+    item.exchangeDeduction = exchangeDeduction;
+    total -= exchangeDeduction;
+  }
   
   return {
     metalValue,
-    makingCharges,
-    otherCharges: item.otherCharges,
-    total: itemValue
+    makingCharge,
+    exchangeDeduction: item.exchangeDeduction || 0,
+    otherCharges: item.otherCharges || 0,
+    total
   };
 };
 
-const calculateExchangeValue = (marketValue) => {
-  const deductionPercent = 3;
-  const deductionAmount = (marketValue * deductionPercent) / 100;
-  const finalValue = marketValue - deductionAmount;
+const calculateBillTotals = (items, gstAmounts = { cgst: 0, sgst: 0, igst: 0 }) => {
+  const itemTotals = items.map(item => calculateItemTotal(item));
+  
+  const subtotal = itemTotals.reduce((sum, item) => sum + item.total, 0);
+  const totalGst = (gstAmounts.cgst || 0) + (gstAmounts.sgst || 0) + (gstAmounts.igst || 0);
+  const totalAmount = subtotal + totalGst;
   
   return {
-    marketValue,
-    deductionPercent,
-    deductionAmount,
-    finalValue
+    subtotal,
+    cgst: gstAmounts.cgst || 0,
+    sgst: gstAmounts.sgst || 0,
+    igst: gstAmounts.igst || 0,
+    totalGst,
+    totalAmount,
+    itemBreakdown: itemTotals
   };
+};
+
+const validateNetWeight = (grossWeight, lessWeight) => {
+  const netWeight = grossWeight - lessWeight;
+  if (netWeight < 0) {
+    throw new Error('Net weight cannot be negative');
+  }
+  return netWeight;
 };
 
 module.exports = {
-  calculateNetWeight,
-  calculateItemValue,
-  calculateExchangeValue
+  calculateItemTotal,
+  calculateBillTotals,
+  validateNetWeight
 };
