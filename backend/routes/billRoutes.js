@@ -1,88 +1,72 @@
 const express = require('express');
 const router = express.Router();
-const { body } = require('express-validator');
 const billController = require('../controllers/billController');
-const auth = require('../middleware/auth');
-const { isAdmin, isStaff } = require('../middleware/role');
+const { auth } = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
 
-// Validation rules for bill creation
-const billValidationRules = [
-  body('customer.name')
-    .notEmpty().withMessage('Customer name is required')
-    .trim(),
-  body('customer.mobile')
-    .notEmpty().withMessage('Customer mobile is required')
-    .matches(/^[0-9]{10}$/).withMessage('Invalid mobile number'),
-  body('items')
-    .isArray({ min: 1 }).withMessage('At least one item is required'),
-  body('items.*.metalType')
-    .notEmpty().withMessage('Metal type is required'),
-  body('items.*.purity')
-    .notEmpty().withMessage('Purity is required'),
-  body('items.*.rate')
-    .isFloat({ min: 0 }).withMessage('Rate must be a positive number'),
-  body('discount')
-    .optional()
-    .isFloat({ min: 0 }).withMessage('Discount must be a positive number'),
-  body('gst.enabled')
-    .optional()
-    .isBoolean(),
-  body('gst.type')
-    .optional()
-    .isIn(['CGST_SGST', 'IGST', 'NONE']),
-  body('gst.cgstAmount')
-    .optional()
-    .isFloat({ min: 0 }),
-  body('gst.sgstAmount')
-    .optional()
-    .isFloat({ min: 0 }),
-  body('gst.igstAmount')
-    .optional()
-    .isFloat({ min: 0 }),
-  body('gst.totalGST')
-    .optional()
-    .isFloat({ min: 0 })
-];
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(process.env.UPLOAD_PATH, 'products'));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
 
-// All routes are protected
+const upload = multer({
+  storage,
+  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+// All routes require authentication
 router.use(auth);
 
-// @route   POST /api/bills/create
-// @desc    Create new bill
-// @access  Private (Staff+)
-router.post('/create', isStaff, billValidationRules, billController.createBill);
+// Create new bill
+router.post('/', billController.createBill);
 
-// @route   GET /api/bills
-// @desc    Get all bills
-// @access  Private (Staff+)
-router.get('/', isStaff, billController.getAllBills);
+// Get all bills with filters
+router.get('/', billController.getBills);
 
-// @route   GET /api/bills/today
-// @desc    Get today's bills
-// @access  Private (Staff+)
-router.get('/today', isStaff, billController.getTodayBills);
+// Get bill statistics
+router.get('/statistics', billController.getStatistics);
 
-// @route   GET /api/bills/report/range
-// @desc    Get bills by date range
-// @access  Private (Staff+)
-router.get('/report/range', isStaff, billController.getBillsByDateRange);
+// Get single bill
+router.get('/:id', billController.getBill);
 
-// @route   GET /api/bills/:id
-// @desc    Get single bill
-// @access  Private (Staff+)
-router.get('/:id', isStaff, billController.getBill);
-
-// Admin only routes
-router.use(isAdmin);
-
-// @route   PUT /api/bills/:id
-// @desc    Update bill
-// @access  Private/Admin
+// Update bill
 router.put('/:id', billController.updateBill);
 
-// @route   DELETE /api/bills/:id
-// @desc    Delete bill
-// @access  Private/Admin
+// Delete bill
 router.delete('/:id', billController.deleteBill);
+
+// Upload product image
+router.post('/upload-image', upload.single('productImage'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    res.json({
+      success: true,
+      imageUrl: `/uploads/products/${req.file.filename}`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;
