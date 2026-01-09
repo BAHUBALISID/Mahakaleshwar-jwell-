@@ -2,64 +2,70 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const rateController = require('../controllers/rateController');
-const { auth, adminOnly } = require('../middleware/auth');
+const auth = require('../middleware/auth');
+const { isAdmin } = require('../middleware/role');
 
 // Validation rules
-const updateRateValidation = [
-  body('rate').isFloat({ min: 0 }).withMessage('Rate must be a positive number'),
-  body('purity').notEmpty().withMessage('Purity is required'),
-  body('unit').optional().isIn(['gram', 'kg', 'carat']).withMessage('Invalid unit')
+const rateValidationRules = [
+  body('metalType')
+    .notEmpty().withMessage('Metal type is required')
+    .isIn(['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others']),
+  body('purity')
+    .notEmpty().withMessage('Purity is required')
+    .trim(),
+  body('rate')
+    .isFloat({ min: 0 }).withMessage('Rate must be a positive number'),
+  body('gstApplicable')
+    .optional()
+    .isBoolean().withMessage('GST applicable must be true or false'),
+  body('unit')
+    .optional()
+    .isIn(['per gram', 'per kg', 'per carat', 'per piece'])
 ];
 
-const addRateValidation = [
-  body('metalType').isIn(['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others'])
-    .withMessage('Valid metal type is required'),
-  body('purity').trim().notEmpty().withMessage('Purity is required'),
-  body('rate').isFloat({ min: 0 }).withMessage('Rate must be a positive number'),
-  body('unit').isIn(['gram', 'kg', 'carat']).withMessage('Valid unit is required')
-];
-
-// ========== PUBLIC ROUTES ==========
-// Get all rates in billing format (for billing.js and exchange.js)
-router.get('/', rateController.getRatesForBilling);
-
-// Get all rates in admin format (array format for admin panel)
-router.get('/all', rateController.getAllRates);
-
-// Get specific rate
-router.get('/:metalType/:purity', rateController.getRate);
-
-// Calculate price for billing
-router.post('/calculate', rateController.calculateItemPrice);
-
-// Calculate exchange value (Market Rate - 3%)
-router.post('/calculate-exchange', rateController.calculateExchangePrice);
-
-// Get exchange rate (Market Rate - 3%) - specific endpoint for exchange.js
-router.get('/exchange-rate/:metalType/:purity', rateController.getExchangeRate);
-
-// ========== PROTECTED ROUTES (ADMIN ONLY) ==========
+// All routes are protected
 router.use(auth);
 
-// Add new rate (admin only)
-router.post('/', adminOnly, addRateValidation, rateController.addRate);
+// @route   GET /api/rates/active
+// @desc    Get active rates for billing dropdowns
+// @access  Private (Staff+)
+router.get('/active', rateController.getActiveRates);
 
-// Update rate by metal type and purity (admin only)
-router.put('/:metalType/:purity', adminOnly, updateRateValidation, rateController.updateRateByMetal);
+// Admin only routes
+router.use(isAdmin);
 
-// Update rate by ID (admin only)
-router.put('/update/:id', adminOnly, updateRateValidation, rateController.updateRateById);
+// @route   GET /api/rates
+// @desc    Get all rates (admin only)
+// @access  Private/Admin
+router.get('/', rateController.getAllRates);
 
-// Bulk update rates (admin only)
-router.post('/bulk-update', adminOnly, rateController.bulkUpdateRates);
+// @route   POST /api/rates
+// @desc    Create new rate
+// @access  Private/Admin
+router.post('/', rateValidationRules, rateController.createRate);
 
-// Delete rate (admin only)
-router.delete('/:id', adminOnly, rateController.deleteRate);
+// @route   PUT /api/rates/:id
+// @desc    Update rate
+// @access  Private/Admin
+router.put('/:id', rateValidationRules, rateController.updateRate);
 
-// Get rate history for specific metal (admin only)
-router.get('/history/:metalType', adminOnly, rateController.getRateHistory);
+// @route   DELETE /api/rates/:id
+// @desc    Delete rate
+// @access  Private/Admin
+router.delete('/:id', rateController.deleteRate);
 
-// Get all rate history (admin only)
-router.get('/history', adminOnly, rateController.getAllRateHistory);
+// @route   PUT /api/rates/bulk/update
+// @desc    Bulk update rates
+// @access  Private/Admin
+router.put('/bulk/update', [
+  body('rates')
+    .isArray().withMessage('Rates must be an array')
+    .notEmpty().withMessage('Rates array cannot be empty')
+], rateController.bulkUpdateRates);
+
+// @route   GET /api/rates/:id/history
+// @desc    Get rate history
+// @access  Private/Admin
+router.get('/:id/history', rateController.getRateHistory);
 
 module.exports = router;
