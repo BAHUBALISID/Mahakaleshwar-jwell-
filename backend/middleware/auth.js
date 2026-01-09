@@ -20,39 +20,21 @@ const auth = async (req, res, next) => {
     req.token = token;
     next();
   } catch (error) {
-    res.status(401).json({ 
-      success: false, 
-      message: 'Please authenticate' 
-    });
+    res.status(401).json({ error: 'Please authenticate' });
   }
 };
 
-const adminOnly = async (req, res, next) => {
+const adminAuth = async (req, res, next) => {
   try {
-    if (req.user.role !== 'admin') {
-      throw new Error();
-    }
-    next();
-  } catch (error) {
-    res.status(403).json({ 
-      success: false, 
-      message: 'Admin access required' 
+    await auth(req, res, () => {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      next();
     });
+  } catch (error) {
+    res.status(401).json({ error: 'Authentication failed' });
   }
 };
 
-const staffOrAdmin = async (req, res, next) => {
-  try {
-    if (req.user.role === 'viewer') {
-      throw new Error();
-    }
-    next();
-  } catch (error) {
-    res.status(403).json({ 
-      success: false, 
-      message: 'Staff or admin access required' 
-    });
-  }
-};
-
-module.exports = { auth, adminOnly, staffOrAdmin };
+module.exports = { auth, adminAuth };
