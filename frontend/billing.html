@@ -3,732 +3,446 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Billing - Shri Mahakaleshwar Jewellers</title>
+    <title>SMJ ERP | New Bill</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/print.css" media="print">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* Additional responsive styles */
-        @media (max-width: 768px) {
-            .billing-container {
-                grid-template-columns: 1fr !important;
-            }
-            
-            .item-row {
-                grid-template-columns: 1fr !important;
-                gap: 15px;
-            }
-            
-            .summary-grid {
-                flex-direction: column;
-            }
-            
-            .action-buttons {
-                flex-direction: column;
-            }
-            
-            .btn-lg {
-                width: 100%;
-            }
-            
-            .payment-options {
-                flex-direction: column;
-                gap: 10px;
-            }
-            
-            .payment-options select {
-                width: 100% !important;
-            }
-        }
-        
-        @media (min-width: 769px) and (max-width: 1024px) {
-            .item-row:not(.exchange-row) {
-                grid-template-columns: repeat(3, 1fr) !important;
-            }
-            
-            .item-row.exchange-row {
-                grid-template-columns: repeat(4, 1fr) !important;
-            }
-        }
-        
-        /* Touch device optimizations */
-        input, select, textarea {
-            font-size: 16px !important; /* Prevents iOS zoom */
-        }
-        
-        /* Item row styling - Updated for 15+ fields */
-        .item-row {
-            display: grid;
-            gap: 10px;
-            padding: 15px;
-            background: var(--light);
-            border-radius: var(--border-radius);
-            margin-bottom: 15px;
-            align-items: center;
-        }
-        
-        /* Regular items grid */
-        .item-row:not(.exchange-row) {
-            grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr auto;
-        }
-        
-        /* Exchange items grid */
-        .item-row.exchange-row {
-            grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr auto;
-        }
-        
-        .item-row input,
-        .item-row select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            min-height: 40px;
-        }
-        
-        /* Compact styling for small screens */
-        @media (max-width: 1400px) {
-            .item-row:not(.exchange-row) {
-                grid-template-columns: repeat(8, 1fr) !important;
-            }
-            
-            .item-row.exchange-row {
-                grid-template-columns: repeat(6, 1fr) !important;
-            }
-        }
-        
-        /* Required field indicator */
-        .required::after {
-            content: " *";
-            color: var(--danger);
-        }
-        
-        /* Optional field indicator */
-        .optional {
-            color: #6c757d;
-            font-size: 0.9em;
-        }
-        
-        /* Field labels inside grid */
-        .field-label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-            display: block;
-        }
-        
-        /* Loading indicator */
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 10px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* Print specific styles */
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            .print-area, .print-area * {
-                visibility: visible;
-            }
-            .print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
-        }
-        
-        /* Print container styles for screen */
-        .print-container {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: white;
-            z-index: 9999;
-            overflow-y: auto;
-            padding: 20px;
-        }
-        
-        .print-container .invoice-container {
-            max-width: 210mm;
-            margin: 0 auto;
-            padding: 20mm;
-            background: white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-        
-        .print-close-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #D4AF37;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            z-index: 10000;
-            font-size: 16px;
-        }
-        
-        .print-close-btn:hover {
-            background: #B8860B;
-        }
-        
-        /* Compact action buttons */
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .action-buttons .btn {
-            min-width: 150px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        
-        /* Grid system for billing container */
-        .billing-container {
-            display: grid;
-            grid-template-columns: 1fr 1.5fr;
-            gap: 30px;
-            margin-bottom: 30px;
-        }
-        
-        @media (max-width: 1200px) {
-            .billing-container {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        /* Summary grid */
-        .summary-grid {
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 30px;
-        }
-        
-        @media (max-width: 1400px) {
-            .summary-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .summary-right {
-                width: 100% !important;
-            }
-        }
-        
-        /* Sticky summary */
-        .summary-right {
-            position: sticky;
-            top: 20px;
-            align-self: start;
-        }
-        
-        /* Scrollable items list */
-        .table-container {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-        }
-        
-        /* Hide scrollbar but keep functionality */
-        .table-container::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        .table-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        
-        .table-container::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 3px;
-        }
-        
-        .table-container::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <a href="index.html" class="navbar-brand">
-            <i class="fas fa-gem" style="font-size: 2rem; color: var(--primary-gold);"></i>
-            <div>
-                <h1>Shri Mahakaleshwar Jewellers</h1>
-                <small>Anisabad, Patna, Bihar</small>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-section">
+                <div class="logo">SMJ</div>
+                <div class="brand-info">
+                    <h1>New Bill - Shree Mahakaleshwar Jewellers</h1>
+                    <p class="tagline">Wear With Cheer</p>
+                </div>
             </div>
-        </a>
-        
-        <div class="navbar-nav">
-            <a href="billing.html" class="nav-link active">
-                <i class="fas fa-receipt"></i> Billing
-            </a>
-            <a href="exchange.html" class="nav-link">
-                <i class="fas fa-exchange-alt"></i> Exchange
-            </a>
-            <a href="reports.html" class="nav-link">
-                <i class="fas fa-chart-line"></i> Reports
-            </a>
-            <a href="admin.html" class="nav-link">
-                <i class="fas fa-cog"></i> Admin
-            </a>
             <div class="user-info">
-                <div class="user-avatar">SM</div>
-                <span>Staff User</span>
+                <button class="btn-secondary" onclick="window.location.href='index.html'">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </button>
+                <button class="btn-logout" onclick="auth.logout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
             </div>
-        </div>
-    </nav>
+        </header>
 
-    <!-- Main Container -->
-    <div class="main-container">
-        <div class="page-header">
-            <h2><i class="fas fa-receipt"></i> Create New Bill</h2>
-            <p>Generate invoices with GST, exchange, and QR codes</p>
-        </div>
+        <!-- Navigation -->
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="billing.html" class="nav-link">
+                        <i class="fas fa-file-invoice"></i> New Bill
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="exchange.html" class="nav-link">
+                        <i class="fas fa-exchange-alt"></i> Exchange
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="stocks.html" class="nav-link">
+                        <i class="fas fa-boxes"></i> Stock
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="reports.html" class="nav-link">
+                        <i class="fas fa-chart-bar"></i> Reports
+                    </a>
+                </li>
+            </ul>
+        </nav>
 
-        <!-- Alert Container -->
-        <div id="alertContainer"></div>
-
-        <div class="billing-container">
-            <!-- Left Column: Customer Details -->
-            <div class="customer-section card">
-                <div class="card-header">
-                    <h3><i class="fas fa-user"></i> Customer Details</h3>
-                    <button type="button" class="btn btn-outline btn-sm" onclick="if (window.billingSystem) window.billingSystem.clearForm()">
-                        <i class="fas fa-redo"></i> Clear
-                    </button>
-                </div>
-                
-                <div class="card-body">
-                    <form id="customerForm">
-                        <div class="form-group">
-                            <label for="customerName" class="required">Full Name</label>
-                            <input type="text" id="customerName" name="customer.name" 
-                                   class="form-control" placeholder="Enter customer name" required>
-                        </div>
-                        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="billing-container">
+                <!-- Customer Details Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-user"></i> Customer Details</h3>
+                    </div>
+                    <div class="card-body">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="customerMobile" class="required">Mobile Number</label>
-                                <input type="tel" id="customerMobile" name="customer.mobile" 
-                                       class="form-control" placeholder="10-digit mobile number" required>
+                                <label for="customerName" class="required">Customer Name</label>
+                                <input type="text" id="customerName" placeholder="Enter customer name" required>
                             </div>
                             <div class="form-group">
-                                <label for="customerDOB">Date of Birth <span class="optional">(optional)</span></label>
-                                <input type="date" id="customerDOB" name="customer.dob" 
-                                       class="form-control">
+                                <label for="customerPhone" class="required">Phone Number</label>
+                                <input type="tel" id="customerPhone" placeholder="10-digit phone number" pattern="[0-9]{10}" required>
                             </div>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="customerAddress">Full Address <span class="optional">(optional)</span></label>
-                            <textarea id="customerAddress" name="customer.address" 
-                                      class="form-control" rows="3" 
-                                      placeholder="Full address with pin code (optional)"></textarea>
-                        </div>
-                        
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="customerPAN">PAN Number <span class="optional">(optional)</span></label>
-                                <input type="text" id="customerPAN" name="customer.pan" 
-                                       class="form-control" placeholder="ABCDE1234F (optional)">
+                                <label for="customerAddress">Address</label>
+                                <textarea id="customerAddress" rows="2" placeholder="Enter customer address"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Item Form -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-gem"></i> Product Details</h3>
+                        <div class="exchange-warning" id="exchangeWarning" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Exchange items have 3% automatic deduction applied</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Row 1 -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="productName" class="required">Product Name</label>
+                                <input type="text" id="productName" placeholder="e.g., Gold Ring, Diamond Necklace" required>
                             </div>
                             <div class="form-group">
-                                <label for="customerAadhaar">Aadhaar Number <span class="optional">(optional)</span></label>
-                                <input type="text" id="customerAadhaar" name="customer.aadhaar" 
-                                       class="form-control" placeholder="12-digit number (optional)">
+                                <label for="unit" class="required">Unit</label>
+                                <select id="unit" required>
+                                    <option value="">Select Unit</option>
+                                    <option value="PCS">PCS (Pieces)</option>
+                                    <option value="GM">GM (Grams)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="quantity" class="required">Quantity</label>
+                                <input type="number" id="quantity" min="1" step="1" value="1" required>
                             </div>
                         </div>
-                    </form>
-                </div>
-            </div>
 
-            <!-- Right Column: Items -->
-            <div class="items-section card">
-                <div class="card-header">
-                    <h3><i class="fas fa-shopping-cart"></i> Items</h3>
-                    <div style="display: flex; gap: 10px;">
-                        <button type="button" class="btn btn-primary btn-sm" id="addItemBtn">
-                            <i class="fas fa-plus"></i> Add Item
-                        </button>
-                        <button type="button" class="btn btn-warning btn-sm" id="addExchangeBtn">
-                            <i class="fas fa-exchange-alt"></i> Add Exchange
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="card-body">
-                    <div class="items-container" id="itemsContainer">
-                        <!-- Items will be added dynamically -->
-                        <div class="text-center text-muted" style="padding: 20px;">
-                            <i class="fas fa-plus-circle fa-2x" style="margin-bottom: 10px;"></i>
-                            <p>Click "Add Item" to start adding jewellery items</p>
+                        <!-- Row 2 - Weight Details -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="grossWeight" class="required">Gross Weight (g)</label>
+                                <input type="number" id="grossWeight" min="0" step="0.001" placeholder="0.000" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="lessWeight">Less Weight (g)</label>
+                                <input type="number" id="lessWeight" min="0" step="0.001" placeholder="0.000">
+                            </div>
+                            <div class="form-group">
+                                <label for="netWeight">Net Weight (g)</label>
+                                <input type="number" id="netWeight" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Row 3 - Metal Details -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="metalType" class="required">Metal Type</label>
+                                <select id="metalType" required>
+                                    <option value="">Select Metal</option>
+                                    <!-- Dynamically populated -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="purity" class="required">Purity</label>
+                                <select id="purity" required disabled>
+                                    <option value="">Select Purity</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="rate" class="required">Rate (₹/g)</label>
+                                <input type="number" id="rate" min="0" step="0.01" required readonly>
+                            </div>
+                        </div>
+
+                        <!-- Row 4 - Making Charges -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="makingChargeType" class="required">Making Charge Type</label>
+                                <select id="makingChargeType" required>
+                                    <option value="FIX">FIX (₹)</option>
+                                    <option value="%" selected>% (Percentage)</option>
+                                    <option value="GRM">GRM (₹ per gram)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="makingChargeValue" class="required">Making Charge Value</label>
+                                <input type="number" id="makingChargeValue" min="0" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="discountOnMaking">Discount on Making (₹)</label>
+                                <input type="number" id="discountOnMaking" min="0" step="0.01" value="0">
+                            </div>
+                        </div>
+
+                        <!-- Row 5 - Additional Details -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="huid">HUID</label>
+                                <input type="text" id="huid" placeholder="Hallmark Unique ID">
+                            </div>
+                            <div class="form-group">
+                                <label for="tunch">Tunch</label>
+                                <input type="text" id="tunch" placeholder="e.g., 916">
+                            </div>
+                            <div class="form-group">
+                                <label for="otherCharges">Other Charges (₹)</label>
+                                <input type="number" id="otherCharges" min="0" step="0.01" value="0">
+                            </div>
+                        </div>
+
+                        <!-- Row 6 - Image Upload -->
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label for="productImage">Product Image</label>
+                                <div class="image-upload-container" onclick="document.getElementById('imageFile').click()">
+                                    <i class="fas fa-camera fa-2x"></i>
+                                    <p>Click to upload product image</p>
+                                    <p class="small">or drag and drop</p>
+                                    <input type="file" id="imageFile" accept="image/*" style="display: none;">
+                                </div>
+                                <div id="imagePreviewContainer" style="display: none; margin-top: 1rem;">
+                                    <img id="imagePreview" style="max-width: 200px; max-height: 200px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 7 - Exchange & Notes -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="isExchange">
+                                    <span>This is an exchange item</span>
+                                </label>
+                                <small class="text-muted">Note: 3% automatic deduction applies</small>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="notes">Notes / Description</label>
+                                <textarea id="notes" rows="2" placeholder="Additional details about the product"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Item Calculation Display -->
+                        <div class="calculation-summary">
+                            <div class="calc-item">
+                                <span>Metal Value:</span>
+                                <span id="metalValueDisplay">₹0.00</span>
+                            </div>
+                            <div class="calc-item">
+                                <span>Making Charge:</span>
+                                <span id="makingChargeDisplay">₹0.00</span>
+                            </div>
+                            <div class="calc-item">
+                                <span>Other Charges:</span>
+                                <span id="otherChargesDisplay">₹0.00</span>
+                            </div>
+                            <div class="calc-item exchange-deduction" style="display: none;">
+                                <span>Exchange Deduction (-3%):</span>
+                                <span id="exchangeDeductionDisplay" class="text-danger">-₹0.00</span>
+                            </div>
+                            <div class="calc-item total">
+                                <span>Item Total:</span>
+                                <span id="itemTotalDisplay">₹0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="form-actions">
+                            <button class="btn-secondary" id="clearItemBtn">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                            <button class="btn-primary" id="addItemBtn">
+                                <i class="fas fa-plus"></i> Add to Bill
+                            </button>
                         </div>
                     </div>
-                    
-                    <div class="exchange-section" style="margin-top: 30px; display: none;" id="exchangeSection">
-                        <h4><i class="fas fa-exchange-alt"></i> Exchange Items</h4>
-                        <div class="exchange-items-container" id="exchangeItems">
-                            <!-- Exchange items will be added dynamically -->
-                        </div>
-                    </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Summary Section -->
-        <div class="summary-section card">
-            <div class="card-header">
-                <h3><i class="fas fa-calculator"></i> Bill Summary</h3>
-                <div class="payment-options" style="display: flex; gap: 15px; align-items: center;">
-                    <select id="gstType" class="form-control" style="width: 180px;">
-                        <option value="intra">Intra-State (CGST+SGST)</option>
-                        <option value="inter">Inter-State (IGST)</option>
-                    </select>
-                    <select id="paymentMode" class="form-control" style="width: 150px;">
-                        <option value="cash">Cash</option>
-                        <option value="card">Card</option>
-                        <option value="upi">UPI</option>
-                        <option value="bank_transfer">Bank Transfer</option>
-                        <option value="credit">Credit</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="card-body">
-                <div class="summary-grid">
-                    <div class="summary-left">
-                        <h5>Items List</h5>
+                <!-- Bill Items Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-list"></i> Bill Items</h3>
+                        <span class="badge" id="itemCount">0 items</span>
+                    </div>
+                    <div class="card-body">
                         <div class="table-container">
-                            <table class="table">
+                            <table class="data-table" id="itemsTable">
                                 <thead>
                                     <tr>
-                                        <th>Description</th>
-                                        <th>Metal & Purity</th>
+                                        <th>#</th>
+                                        <th>Product</th>
+                                        <th>Metal/Purity</th>
                                         <th>Weight</th>
-                                        <th>Amount</th>
+                                        <th>Rate</th>
+                                        <th>Metal Value</th>
+                                        <th>Making</th>
+                                        <th>Other</th>
+                                        <th>Total</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody id="itemsList">
-                                    <tr><td colspan="4" class="text-center text-muted">No items added</td></tr>
+                                <tbody id="itemsTableBody">
+                                    <!-- Items will be added here -->
                                 </tbody>
                             </table>
                         </div>
-                        
-                        <div id="exchangeItemsSection" style="display: none; margin-top: 30px;">
-                            <h5>Exchange Items</h5>
-                            <div class="table-container">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Description</th>
-                                            <th>Metal & Purity</th>
-                                            <th>Weight</th>
-                                            <th>Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="exchangeItemsList">
-                                        <!-- Exchange items will be populated here -->
-                                    </tbody>
-                                </table>
-                            </div>
+                    </div>
+                </div>
+
+                <!-- GST Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-receipt"></i> GST Details</h3>
+                        <div class="gst-warning" id="gstWarning" style="display: none;">
+                            <i class="fas fa-info-circle"></i>
+                            <span>GST not applicable for this metal type</span>
                         </div>
                     </div>
-                    
-                    <div class="summary-right">
-                        <div class="summary-box" style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6;">
-                            <div class="summary-row">
-                                <span>Metal Value:</span>
-                                <span id="metalValue">₹0.00</span>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="cgst">CGST (₹)</label>
+                                <input type="number" id="cgst" min="0" step="0.01" value="0">
                             </div>
-                            <div class="summary-row">
-                                <span>Making Charges:</span>
-                                <span id="makingCharges">₹0.00</span>
+                            <div class="form-group">
+                                <label for="sgst">SGST (₹)</label>
+                                <input type="number" id="sgst" min="0" step="0.01" value="0">
                             </div>
-                            <div class="summary-row">
-                                <span>Sub Total:</span>
-                                <span id="subTotal">₹0.00</span>
-                            </div>
-                            <div class="summary-row">
-                                <span>Discount:</span>
-                                <span>
-                                    <input type="number" id="discount" class="form-control" 
-                                           value="0" min="0" step="0.01" style="width: 120px; display: inline-block;">
-                                </span>
-                            </div>
-                            <!-- Removed GST on Making as per BUSINESS RULE: GST is 3% on metal only -->
-                            <div class="summary-row total">
-                                <span>Grand Total:</span>
-                                <span id="grandTotal">₹0.00</span>
-                            </div>
-                            
-                            <div class="exchange-summary" id="exchangeSummary" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 2px solid #dee2e6;">
-                                <div class="summary-row">
-                                    <span>Old Items Value:</span>
-                                    <span id="exchangeValue">₹0.00</span>
-                                </div>
-                                <div class="summary-row">
-                                    <span>Balance Payable:</span>
-                                    <span id="balancePay" class="text-danger">₹0.00</span>
-                                </div>
-                                <div class="summary-row">
-                                    <span>Balance Refundable:</span>
-                                    <span id="balanceRefund" class="text-success">₹0.00</span>
-                                </div>
-                            </div>
-                            
-                            <div class="amount-words" style="margin-top: 20px; padding: 15px; background: white; border-radius: 5px; border: 1px solid #dee2e6;">
-                                <p><strong>Amount in Words:</strong></p>
-                                <p id="amountInWords" class="text-muted">Zero Rupees Only</p>
+                            <div class="form-group">
+                                <label for="igst">IGST (₹)</label>
+                                <input type="number" id="igst" min="0" step="0.01" value="0">
                             </div>
                         </div>
-                        
-                        <div class="action-buttons">
-                            <button type="button" class="btn btn-success btn-lg" id="generateBillBtn">
-                                <i class="fas fa-file-invoice"></i> Generate Bill
+                        <div class="gst-info">
+                            <p><strong>Note:</strong> GST amounts are manually entered. Total GST will be calculated automatically.</p>
+                            <p>Total GST: <span id="totalGSTDisplay">₹0.00</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment & Summary -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-calculator"></i> Bill Summary & Payment</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="summary-container">
+                            <div class="payment-details">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="paymentMethod" class="required">Payment Method</label>
+                                        <select id="paymentMethod" required>
+                                            <option value="cash">Cash</option>
+                                            <option value="card">Card</option>
+                                            <option value="upi">UPI</option>
+                                            <option value="bank_transfer">Bank Transfer</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="paymentStatus" class="required">Payment Status</label>
+                                        <select id="paymentStatus" required>
+                                            <option value="paid">Paid</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="partial">Partial</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group full-width">
+                                        <label for="billNotes">Bill Notes</label>
+                                        <textarea id="billNotes" rows="2" placeholder="Additional notes for the bill"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bill-summary">
+                                <div class="summary-item">
+                                    <span>Subtotal:</span>
+                                    <span id="subtotalDisplay">₹0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>CGST:</span>
+                                    <span id="cgstDisplay">₹0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>SGST:</span>
+                                    <span id="sgstDisplay">₹0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>IGST:</span>
+                                    <span id="igstDisplay">₹0.00</span>
+                                </div>
+                                <div class="summary-item total-gst">
+                                    <span>Total GST:</span>
+                                    <span id="totalGstDisplay">₹0.00</span>
+                                </div>
+                                <div class="summary-item exchange-summary" style="display: none;">
+                                    <span>Exchange Deduction:</span>
+                                    <span id="totalExchangeDeduction" class="text-danger">-₹0.00</span>
+                                </div>
+                                <div class="summary-item grand-total">
+                                    <span>Grand Total:</span>
+                                    <span id="totalAmountDisplay">₹0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Final Actions -->
+                        <div class="final-actions">
+                            <button class="btn-secondary" id="clearBillBtn">
+                                <i class="fas fa-trash"></i> Clear Bill
                             </button>
-                            <button type="button" class="btn btn-outline btn-lg" id="printBillBtn" disabled>
-                                <i class="fas fa-print"></i> Print Bill
+                            <button class="btn-primary" id="generateBillBtn">
+                                <i class="fas fa-file-pdf"></i> Generate Bill & PDF
                             </button>
-                            <button type="button" class="btn btn-secondary btn-lg" onclick="if (window.billingSystem) window.billingSystem.clearForm()">
-                                <i class="fas fa-times"></i> Clear All
+                            <button class="btn-success" id="saveDraftBtn">
+                                <i class="fas fa-save"></i> Save Draft
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Shree Mahakaleshwar Jewellers Billing System | Manual GST Entry | Fixed 3% Exchange Deduction</p>
+        </footer>
     </div>
 
-    <!-- Bill Preview Modal -->
-    <div class="modal" id="billPreviewModal" style="display: none;">
-        <div class="modal-content" style="max-width: 1000px;">
+    <!-- Bill Success Modal -->
+    <div class="modal" id="billSuccessModal">
+        <div class="modal-content">
             <div class="modal-header">
-                <h3>Bill Preview</h3>
-                <button type="button" class="close" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+                <h3>Bill Generated Successfully!</h3>
+                <button class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="preview-container print-area">
-                    <div style="text-align: center; border-bottom: 2px solid var(--primary-gold); padding-bottom: 20px; margin-bottom: 20px;">
-                        <h2 style="color: var(--primary-gold); margin: 0;">Shri Mahakaleshwar Jewellers</h2>
-                        <p style="margin: 5px 0; color: #666;">Anisabad, Patna, Bihar - 800002</p>
-                        <p style="margin: 5px 0; color: #666;">Mobile: +91 9876543210 | GSTIN: 10ABCDE1234F1Z5</p>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
-                        <div>
-                            <div><strong>Bill No:</strong> <span id="previewBillNumber"></span></div>
-                            <div><strong>Date:</strong> <span id="previewBillDate"></span></div>
-                        </div>
-                        <div>
-                            <div><strong>Invoice Type:</strong> <span id="previewInvoiceType">Sale</span></div>
-                            <div><strong>Payment Mode:</strong> <span id="previewPaymentMode">Cash</span></div>
-                            <div><strong>GST Type:</strong> <span id="previewGSTType">CGST+SGST</span></div>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px; padding: 15px; background: white; border: 1px solid #eee; border-radius: 5px;">
-                        <h4 style="margin: 0 0 10px 0; color: #333;">Customer Details</h4>
-                        <p style="margin: 5px 0;"><strong>Name:</strong> <span id="previewCustomerName"></span></p>
-                        <p style="margin: 5px 0;"><strong>Mobile:</strong> <span id="previewCustomerMobile"></span></p>
-                        <p style="margin: 5px 0;"><strong>Address:</strong> <span id="previewCustomerAddress"></span></p>
-                    </div>
-                    
-                    <div class="table-container">
-                        <table class="table preview-table">
-                            <thead>
-                                <tr>
-                                    <th>Description</th>
-                                    <th>Metal & Purity</th>
-                                    <th>Weight</th>
-                                    <th>Amount (₹)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="previewItems">
-                                <!-- Items will be populated here -->
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div id="exchangePreviewSection" style="display: none; margin-bottom: 20px;">
-                        <h4 style="color: #333; margin-bottom: 10px;">Exchange Details</h4>
-                        <div class="table-container">
-                            <table class="table preview-table">
-                                <thead>
-                                    <tr>
-                                        <th>Old Item Description</th>
-                                        <th>Metal & Purity</th>
-                                        <th>Weight</th>
-                                        <th>Value (₹)</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="previewExchangeItems">
-                                    <!-- Exchange items will be populated here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
-                        <div class="summary-row">
-                            <span>Metal Value:</span>
-                            <span id="previewMetalValue">₹0.00</span>
-                        </div>
-                        <div class="summary-row">
-                            <span>Making Charges:</span>
-                            <span id="previewMakingCharges">₹0.00</span>
-                        </div>
-                        <div class="summary-row">
-                            <span>Sub Total:</span>
-                            <span id="previewSubTotal">₹0.00</span>
-                        </div>
-                        <div class="summary-row">
-                            <span>Discount:</span>
-                            <span id="previewDiscount">₹0.00</span>
-                        </div>
-                        <!-- BUSINESS RULE: GST is 3% on metal only -->
-                        <div class="summary-row">
-                            <span>GST on Metal (3%):</span>
-                            <span id="previewGSTMetal">₹0.00</span>
-                        </div>
-                        <div id="previewExchangeDetails" style="display: none;">
-                            <div class="summary-row">
-                                <span>Old Items Value:</span>
-                                <span id="previewOldItemsTotal">₹0.00</span>
-                            </div>
-                            <div class="summary-row">
-                                <span>Balance:</span>
-                                <span id="previewBalance">₹0.00</span>
-                            </div>
-                        </div>
-                        <div class="summary-row total">
-                            <span>Grand Total:</span>
-                            <span id="previewGrandTotal">₹0.00</span>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px; padding: 15px; background: white; border: 1px solid #eee; border-radius: 5px;">
-                        <p style="margin: 0;"><strong>Amount in Words:</strong> <span id="previewAmountWords"></span></p>
-                    </div>
-                    
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <div style="display: inline-block; padding: 15px; background: white; border: 1px solid #eee; border-radius: 5px;">
-                            <h5 style="margin: 0 0 10px 0;">Bill QR Code</h5>
-                            <img id="previewBillQR" src="" alt="Bill QR Code" style="max-width: 150px; height: auto;">
-                            <p style="margin: 10px 0 0 0; color: #666;">Scan for bill details</p>
-                        </div>
-                    </div>
+                <div class="success-message">
+                    <i class="fas fa-check-circle"></i>
+                    <p>Bill has been generated and PDF is ready for download.</p>
+                    <p><strong>Bill Number:</strong> <span id="generatedBillNumber"></span></p>
+                    <p><strong>Total Amount:</strong> <span id="generatedBillAmount"></span></p>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" onclick="if (window.billingSystem) window.billingSystem.printBill()">
-                    <i class="fas fa-print"></i> Print Bill
-                </button>
-                <button type="button" class="btn btn-outline close">Close</button>
+                <div class="qr-section" id="qrSection">
+                    <!-- QR codes will be added here -->
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="printBill()">
+                        <i class="fas fa-print"></i> Print Bill
+                    </button>
+                    <button class="btn-primary" onclick="downloadPDF()">
+                        <i class="fas fa-download"></i> Download PDF
+                    </button>
+                    <button class="btn-success" onclick="sendWhatsApp()">
+                        <i class="fab fa-whatsapp"></i> Send via WhatsApp
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Print Container (hidden by default) -->
-    <div id="printContainer" class="print-container">
-        <button type="button" class="print-close-btn" onclick="document.getElementById('printContainer').style.display='none'">
-            <i class="fas fa-times"></i> Close Preview
-        </button>
-        <!-- Print content will be inserted here -->
-    </div>
-
-    <!-- Scripts -->
     <script src="js/auth.js"></script>
-    <script>
-        // Auto-init script
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load billing.js
-            const script = document.createElement('script');
-            script.src = 'js/billing.js';
-            script.onload = function() {
-                // Initialize billing system after auth check
-                if (window.auth && window.auth.isAuthenticated && window.auth.isAuthenticated()) {
-                    window.billingSystem = new BillingSystem();
-                    
-                    // Setup modal close handlers
-                    document.querySelectorAll('.close').forEach(closeBtn => {
-                        closeBtn.addEventListener('click', function() {
-                            document.getElementById('billPreviewModal').style.display = 'none';
-                        });
-                    });
-                    
-                    // Close modal on outside click
-                    document.getElementById('billPreviewModal').addEventListener('click', function(e) {
-                        if (e.target === this) {
-                            this.style.display = 'none';
-                        }
-                    });
-                    
-                    // Close print container on outside click
-                    document.getElementById('printContainer').addEventListener('click', function(e) {
-                        if (e.target === this) {
-                            this.style.display = 'none';
-                        }
-                    });
-                    
-                    // Add window resize listener for responsive layout
-                    window.addEventListener('resize', function() {
-                        if (window.billingSystem && window.billingSystem.updateResponsiveLayout) {
-                            window.billingSystem.updateResponsiveLayout();
-                        }
-                    });
-                    
-                    console.log('Billing system initialized successfully');
-                    
-                } else {
-                    // Redirect to login
-                    window.location.href = 'login.html';
-                }
-            };
-            script.onerror = function() {
-                console.error('Failed to load billing.js');
-                showAlert('danger', 'Failed to load billing system. Please refresh the page.');
-            };
-            document.body.appendChild(script);
-        });
-        
-        // Simple alert function for script errors
-        function showAlert(type, message) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type}`;
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
-            `;
-            
-            const container = document.getElementById('alertContainer');
-            if (container) {
-                container.appendChild(alertDiv);
-            }
-        }
-    </script>
+    <script src="js/billing.js"></script>
 </body>
 </html>
