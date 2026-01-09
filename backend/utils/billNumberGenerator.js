@@ -1,28 +1,65 @@
 const Bill = require('../models/Bill');
-const moment = require('moment');
 
+/**
+ * Generate unique bill number for the day
+ * Format: YYYYMMDD-001, YYYYMMDD-002, etc.
+ */
 const generateBillNumber = async () => {
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+  
   try {
-    const today = moment().format('DDMMYYYY');
-    const prefix = `SMJ${today}`;
+    // Find today's last bill
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
     
-    // Find the last bill number for today
     const lastBill = await Bill.findOne({
-      billNumber: new RegExp(`^${prefix}`)
+      billDate: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
     }).sort({ billNumber: -1 });
     
     let sequence = 1;
-    if (lastBill) {
-      const lastSeq = parseInt(lastBill.billNumber.slice(-3));
-      sequence = lastSeq + 1;
+    if (lastBill && lastBill.billNumber) {
+      // Extract sequence from bill number
+      const lastNumber = parseInt(lastBill.billNumber.split('-')[1]) || 0;
+      sequence = lastNumber + 1;
     }
     
-    return `${prefix}${sequence.toString().padStart(3, '0')}`;
+    const billNumber = `${dateStr}-${sequence.toString().padStart(3, '0')}`;
+    
+    return {
+      success: true,
+      billNumber,
+      sequence
+    };
   } catch (error) {
-    console.error('Error generating bill number:', error);
-    // Fallback to timestamp-based number
-    return `SMJ${Date.now()}`;
+    console.error('Generate bill number error:', error);
+    return {
+      success: false,
+      error: 'Failed to generate bill number'
+    };
   }
 };
 
-module.exports = { generateBillNumber };
+/**
+ * Generate QR code data for bill
+ */
+const generateQRData = (bill) => {
+  const qrData = {
+    shop: 'Shri Mahakaleshwar Jewellers',
+    billNumber: bill.billNumber,
+    date: bill.billDate.toISOString().split('T')[0],
+    total: bill.summary.grandTotal,
+    customer: bill.customer.name,
+    mobile: bill.customer.mobile
+  };
+  
+  return JSON.stringify(qrData);
+};
+
+module.exports = {
+  generateBillNumber,
+  generateQRData
+};
