@@ -1,184 +1,260 @@
-// backend/models/Bill.js
 const mongoose = require('mongoose');
 
-const BillItemSchema = new mongoose.Schema({
-  // Display/Record only fields (NO CALCULATION)
-  product: { type: String, required: true },
-  unit: { type: String, default: 'PCS' },
-  num: { type: String },
-  stmp: { type: String },
-  tnch: { type: String }, // Tunch percentage as string (e.g., "91.6%")
-  huid: { type: String }, // HUID number
-  
-  // Calculation fields
-  qty: { type: Number, required: true, min: 1, default: 1 },
-  grWt: { type: Number, required: true, min: 0 }, // Gross Weight
-  less: { type: Number, default: 0, min: 0 }, // Less weight
-  ntWt: { type: Number, required: true, min: 0 }, // Net Weight (Gr.Wt - Less)
-  huCrg: { type: Number, default: 0, min: 0 }, // HUID Charge
-  mk: { type: String, default: 'FIX' }, // Making type
-  mkCrg: { type: Number, default: 0, min: 0 }, // Making Charge
-  rate: { type: Number, required: true, min: 0 }, // Rate per unit (manual rate)
-  disMk: { type: Number, default: 0, min: 0, max: 100 }, // Discount on Making (%)
-  
-  // Metal information
-  metalType: { 
-    type: String, 
-    required: true, 
-    enum: ['Gold', 'Silver', 'Diamond', 'Platinum', 'Antique / Polki', 'Others'] 
+const ItemSchema = new mongoose.Schema({
+  // Basic item info
+  product: String,
+  unit: String,
+  num: String,
+  stmp: String,
+  qty: {
+    type: Number,
+    default: 1,
+    min: 1
   },
-  purity: { type: String, required: true },
+  
+  // Weight details
+  grWt: Number,
+  less: Number,
+  ntWt: Number,
+  
+  // Metal details
+  metalType: String,
+  purity: String,
+  tnch: String,
+  huid: String,
+  huCrg: Number,
+  
+  // Making charges
+  mk: {
+    type: String,
+    enum: ['FIX', '%', 'GRM']
+  },
+  mkCrg: Number,
+  disMk: Number,
+  
+  // Rate and value
+  rate: Number,
+  metalValue: Number,
+  makingCharges: Number,
+  totalValue: Number,
   
   // Exchange specific fields
-  isExchange: { type: Boolean, default: false },
-  wastage: { type: Number, default: 0, min: 0 }, // For exchange items only
-  meltingCharges: { type: Number, default: 0, min: 0 }, // For exchange items only
+  isExchange: {
+    type: Boolean,
+    default: false
+  },
+  wastage: Number,
+  meltingCharges: Number,
   
-  // Calculated values (populated by backend)
-  metalValue: { type: Number, default: 0 },
-  makingValue: { type: Number, default: 0 },
-  huidCharge: { type: Number, default: 0 },
-  totalValue: { type: Number, default: 0 },
-  
-  // For exchange items
-  exchangeValue: { type: Number, default: 0 } // For exchange items, this is the exchange value
+  // Metadata
+  sequence: Number
+});
+
+const GSTSchema = new mongoose.Schema({
+  enabled: {
+    type: Boolean,
+    default: false
+  },
+  type: {
+    type: String,
+    enum: ['CGST_SGST', 'IGST', 'NONE'],
+    default: 'NONE'
+  },
+  cgstAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  sgstAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  igstAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  totalGST: {
+    type: Number,
+    default: 0,
+    min: 0
+  }
 });
 
 const BillSchema = new mongoose.Schema({
-  billNumber: { 
-    type: String, 
-    unique: true, 
-    required: true 
+  // Bill identification
+  billNumber: {
+    type: String,
+    required: true,
+    unique: true
   },
-  billDate: { 
-    type: Date, 
-    default: Date.now 
+  billDate: {
+    type: Date,
+    default: Date.now
   },
   
-  // Customer info (from billing.html)
+  // Customer details
   customer: {
-    name: { type: String, required: true },
-    mobile: { type: String, required: true },
-    address: { type: String },
-    dob: { type: Date },
-    pan: { type: String },
-    aadhaar: { type: String }
-  },
-  
-  // Items (embedded documents)
-  items: [BillItemSchema],
-  
-  // Summary calculations (backend-calculated)
-  summary: {
-    metalValue: { type: Number, default: 0 },
-    makingValue: { type: Number, default: 0 },
-    exchangeValue: { type: Number, default: 0 },
-    subTotal: { type: Number, default: 0 },
-    gst: {
-      taxableValue: { type: Number, default: 0 },
-      gstAmount: { type: Number, default: 0 }, // 3% on metal value only
-      cgst: { type: Number, default: 0 },
-      sgst: { type: Number, default: 0 }
+    name: {
+      type: String,
+      required: true
     },
-    discount: { type: Number, default: 0 },
-    grandTotal: { type: Number, default: 0 },
-    balancePayable: { type: Number, default: 0 },
-    balanceRefundable: { type: Number, default: 0 }
+    mobile: {
+      type: String,
+      required: true
+    },
+    address: String,
+    dob: Date,
+    pan: String,
+    aadhaar: String,
+    gstin: String
   },
   
-  // Payment info (from billing.html)
-  paymentMode: { 
-    type: String, 
-    enum: ['cash', 'card', 'upi', 'bank_transfer', 'credit'], 
-    default: 'cash' 
-  },
-  paymentStatus: { 
-    type: String, 
-    enum: ['pending', 'paid', 'partial'], 
-    default: 'paid' 
+  // Items
+  items: [ItemSchema],
+  
+  // Payment details
+  paymentMode: {
+    type: String,
+    enum: ['cash', 'card', 'upi', 'bank_transfer', 'credit'],
+    default: 'cash'
   },
   
-  // GST info (from billing.html)
-  gstType: { 
-    type: String, 
-    enum: ['intra', 'inter'], 
-    default: 'intra' 
+  // GST
+  gst: GSTSchema,
+  
+  // Discount
+  discount: {
+    type: Number,
+    default: 0,
+    min: 0
   },
   
-  // Business rules constants
-  gstOnMetal: { type: Number, default: 3 }, // Fixed 3% (BUSINESS RULE)
-  gstOnMaking: { type: Number, default: 0 }, // Fixed 0% (BUSINESS RULE)
-  
-  // Exchange details
-  exchangeDetails: {
-    hasExchange: { type: Boolean, default: false },
-    oldItemsCount: { type: Number, default: 0 },
-    newItemsCount: { type: Number, default: 0 }
+  // Summary
+  summary: {
+    metalValue: {
+      type: Number,
+      default: 0
+    },
+    makingValue: {
+      type: Number,
+      default: 0
+    },
+    subTotal: {
+      type: Number,
+      default: 0
+    },
+    exchangeValue: {
+      type: Number,
+      default: 0
+    },
+    balancePayable: {
+      type: Number,
+      default: 0
+    },
+    balanceRefundable: {
+      type: Number,
+      default: 0
+    },
+    grandTotal: {
+      type: Number,
+      default: 0
+    }
   },
   
-  // QR Codes
-  qrCodes: {
-    billQR: { type: String }, // Base64 encoded QR
-    paymentQR: { type: String }
-  },
+  // QR Code
+  qrCode: String,
   
-  // Audit trail
-  createdBy: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
+  // Metadata
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
+  isDeleted: {
+    type: Boolean,
+    default: false
   },
-  updatedAt: { 
-    type: Date, 
-    default: Date.now 
+  deletedAt: Date,
+  deletedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true
 });
 
-// Generate bill number before save
-BillSchema.pre('save', async function(next) {
-  if (!this.billNumber) {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    
-    // Find the last bill of this month
-    const lastBill = await this.constructor.findOne({
-      billNumber: new RegExp(`SMJ-${year}${month}-\\d+`)
-    }).sort({ billNumber: -1 });
-    
-    let newNumber = 1;
-    if (lastBill && lastBill.billNumber) {
-      const lastNumber = parseInt(lastBill.billNumber.split('-')[2]);
-      newNumber = lastNumber + 1;
+// Indexes
+BillSchema.index({ billNumber: 1 });
+BillSchema.index({ 'customer.mobile': 1 });
+BillSchema.index({ billDate: -1 });
+BillSchema.index({ 'customer.name': 'text' });
+
+// Virtual for formatted bill number
+BillSchema.virtual('formattedBillNumber').get(function() {
+  return `B${this.billNumber.toString().padStart(6, '0')}`;
+});
+
+// Pre-save middleware to calculate totals
+BillSchema.pre('save', function(next) {
+  // Calculate totals from items
+  let metalValue = 0;
+  let makingValue = 0;
+  let exchangeValue = 0;
+  
+  this.items.forEach(item => {
+    if (!item.isExchange) {
+      metalValue += item.metalValue || 0;
+      makingValue += item.makingCharges || 0;
+    } else {
+      exchangeValue += item.totalValue || 0;
     }
-    
-    this.billNumber = `SMJ-${year}${month}-${String(newNumber).padStart(4, '0')}`;
+  });
+  
+  const subTotal = metalValue + makingValue;
+  const afterDiscount = subTotal - this.discount;
+  
+  // Add GST if enabled
+  let totalWithGST = afterDiscount;
+  if (this.gst.enabled) {
+    totalWithGST += this.gst.totalGST;
   }
   
-  // Set exchange details
-  if (this.items && this.items.length > 0) {
-    const exchangeItems = this.items.filter(item => item.isExchange);
-    const newItems = this.items.filter(item => !item.isExchange);
-    
-    this.exchangeDetails = {
-      hasExchange: exchangeItems.length > 0,
-      oldItemsCount: exchangeItems.length,
-      newItemsCount: newItems.length
-    };
+  // Calculate balance
+  let balancePayable = 0;
+  let balanceRefundable = 0;
+  
+  if (exchangeValue > 0) {
+    if (totalWithGST > exchangeValue) {
+      balancePayable = totalWithGST - exchangeValue;
+    } else {
+      balanceRefundable = exchangeValue - totalWithGST;
+    }
+  } else {
+    balancePayable = totalWithGST;
   }
+  
+  // Update summary
+  this.summary = {
+    metalValue,
+    makingValue,
+    subTotal,
+    exchangeValue,
+    balancePayable,
+    balanceRefundable,
+    grandTotal: exchangeValue > 0 ? (totalWithGST > exchangeValue ? balancePayable : -balanceRefundable) : totalWithGST
+  };
   
   next();
 });
 
-// Update timestamp on update
-BillSchema.pre('findOneAndUpdate', function(next) {
-  this.set({ updatedAt: new Date() });
-  next();
-});
+BillSchema.methods.toJSON = function() {
+  const bill = this.toObject();
+  bill.formattedBillNumber = this.formattedBillNumber;
+  delete bill.__v;
+  delete bill.isDeleted;
+  return bill;
+};
 
 module.exports = mongoose.model('Bill', BillSchema);
