@@ -3,31 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exchange - Shri Mahakaleshwar Jewellers</title>
+    <title>SMJ ERP | Exchange Bill</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/print.css" media="print">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        .exchange-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
+        .exchange-rules {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
         }
         
-        .calculator-section, .exchange-items-section {
-            background: white;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        .exchange-rules ul {
+            margin: 10px 0 0 20px;
         }
         
-        .tabs {
+        .exchange-rules li {
+            margin-bottom: 5px;
+        }
+        
+        .item-tabs {
             display: flex;
             border-bottom: 2px solid #dee2e6;
             margin-bottom: 20px;
         }
         
-        .tab-btn {
-            padding: 10px 20px;
+        .item-tab {
+            padding: 12px 24px;
             background: none;
             border: none;
             border-bottom: 3px solid transparent;
@@ -38,536 +42,624 @@
             gap: 8px;
         }
         
-        .tab-btn.active {
+        .item-tab.active {
             border-bottom-color: #D4AF37;
             color: #D4AF37;
         }
         
-        .tab-content {
+        .item-form {
             display: none;
         }
         
-        .tab-content.active {
+        .item-form.active {
             display: block;
         }
         
-        .calculator-grid {
+        .exchange-summary-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        
-        .calculator-section .form-group {
-            margin-bottom: 15px;
-        }
-        
-        .calc-result {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
-        }
-        
-        .result-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #dee2e6;
-        }
-        
-        .result-row.total {
-            font-weight: bold;
-            color: #D4AF37;
-            border-bottom: 2px solid #D4AF37;
-        }
-        
-        .items-container {
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 10px;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            background: #f8f9fa;
-        }
-        
-        .item-row {
-            display: grid;
-            gap: 10px;
-            padding: 10px;
-            margin-bottom: 10px;
-            background: white;
-            border-radius: 5px;
-            border: 1px solid #dee2e6;
-            align-items: center;
-        }
-        
-        /* Old items grid - matches exchange.js structure */
-        .item-row.old-item {
-            grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr auto;
-            border-left: 4px solid #ffc107;
-        }
-        
-        /* New items grid - matches exchange.js structure */
-        .item-row.new-item {
-            grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr auto;
-            border-left: 4px solid #28a745;
-        }
-        
-        .item-value {
-            font-weight: bold;
-            color: #28a745;
-        }
-        
-        .summary-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
             margin: 20px 0;
         }
         
         .summary-card {
-            background: white;
+            background: #f8f9fa;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            gap: 15px;
+            border: 1px solid #dee2e6;
+            text-align: center;
         }
         
-        .summary-card.balance-payable {
-            border-top: 4px solid #dc3545;
+        .summary-card.total {
+            background: #D4AF37;
+            color: white;
+            border-color: #D4AF37;
         }
         
-        .summary-card.balance-refund {
-            border-top: 4px solid #28a745;
-        }
-        
-        .card-icon {
-            width: 50px;
-            height: 50px;
-            background: #f8f9fa;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: #D4AF37;
-        }
-        
-        .card-label {
+        .summary-label {
             font-size: 12px;
             color: #666;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            margin-bottom: 5px;
         }
         
-        .card-value {
+        .summary-value {
             font-size: 24px;
             font-weight: bold;
             color: #333;
         }
         
-        .exchange-notes {
-            background: #fff3cd;
+        .summary-card.total .summary-label,
+        .summary-card.total .summary-value {
+            color: white;
+        }
+        
+        .balance-section {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+            margin: 20px 0;
+        }
+        
+        .balance-amount {
+            font-size: 36px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
             padding: 20px;
             border-radius: 8px;
-            border-left: 4px solid #ffc107;
-            margin-top: 20px;
         }
         
-        .exchange-notes ul {
-            margin: 10px 0 0 20px;
+        .balance-amount.payable {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
         }
         
-        .exchange-notes li {
-            margin-bottom: 5px;
+        .balance-amount.refundable {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
         }
         
-        .action-section {
-            margin-top: 30px;
-            padding: 25px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        .balance-amount.settled {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #17a2b8;
         }
         
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-        }
-        
-        .help-text {
-            margin-top: 15px;
-            padding: 10px;
+        .exchange-info {
             background: #e7f3ff;
-            border-radius: 5px;
-            color: #0066cc;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
         }
         
-        /* Responsive styles */
         @media (max-width: 1200px) {
-            .exchange-container {
-                grid-template-columns: 1fr;
+            .exchange-summary-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
         
         @media (max-width: 768px) {
-            .item-row {
-                grid-template-columns: 1fr !important;
-            }
-            
-            .calculator-grid {
+            .exchange-summary-grid {
                 grid-template-columns: 1fr;
             }
             
-            .action-buttons {
+            .item-tabs {
                 flex-direction: column;
             }
             
-            .summary-cards {
-                grid-template-columns: 1fr;
+            .item-tab {
+                width: 100%;
+                text-align: left;
             }
-        }
-        
-        /* Field labels */
-        .field-label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-            display: block;
-        }
-        
-        /* Make select and inputs full width in grid */
-        .item-row input,
-        .item-row select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        
-        /* Delete button styling */
-        .item-row .btn-danger {
-            padding: 5px 10px;
-            min-width: 40px;
-        }
-        
-        /* Business rule note */
-        .business-rule-note {
-            background: #d4edda;
-            border-left: 4px solid #28a745;
-            padding: 10px 15px;
-            margin: 10px 0;
-            border-radius: 4px;
-            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <a href="index.html" class="navbar-brand">
-            <i class="fas fa-gem"></i>
-            <div>
-                <h1>Shri Mahakaleshwar Jewellers</h1>
-                <small>Anisabad, Patna, Bihar</small>
-            </div>
-        </a>
-        
-        <div class="navbar-nav">
-            <a href="billing.html" class="nav-link">
-                <i class="fas fa-receipt"></i> Billing
-            </a>
-            <a href="exchange.html" class="nav-link active">
-                <i class="fas fa-exchange-alt"></i> Exchange
-            </a>
-            <a href="reports.html" class="nav-link">
-                <i class="fas fa-chart-line"></i> Reports
-            </a>
-            <a href="admin.html" class="nav-link">
-                <i class="fas fa-cog"></i> Admin
-            </a>
-            <div class="user-info"></div>
-        </div>
-    </nav>
-
-    <!-- Main Container -->
-    <div class="main-container">
-        <div class="page-header">
-            <h2><i class="fas fa-exchange-alt"></i> Jewellery Exchange System</h2>
-            <p>Calculate exchange value and proceed to billing</p>
-        </div>
-
-        <!-- Alert Container -->
-        <div id="alertContainer"></div>
-        
-        <!-- Business Rule Note -->
-        <div class="business-rule-note">
-            <strong><i class="fas fa-exclamation-circle"></i> BUSINESS RULE:</strong> 
-            Exchange value is calculated at <strong>Market Rate - 3%</strong>. GST is 3% on metal value only (applied in billing).
-        </div>
-
-        <div class="exchange-container">
-            <!-- Left Column: Exchange Calculator -->
-            <div class="calculator-section">
-                <div class="section-title">
-                    <h3><i class="fas fa-calculator"></i> Exchange Calculator</h3>
-                    <button class="btn btn-info btn-sm" onclick="if (window.exchangeSystem) window.exchangeSystem.resetExchange()">
-                        <i class="fas fa-redo"></i> Reset
-                    </button>
-                </div>
-                
-                <div class="calculator" id="exchangeCalculator">
-                    <!-- Calculator will be loaded dynamically by exchange.js -->
-                    <div class="text-center text-muted">
-                        <i class="fas fa-spinner fa-spin"></i> Loading calculator...
-                    </div>
-                </div>
-                
-                <div class="help-text">
-                    <p><i class="fas fa-info-circle"></i> Current rates are loaded from the system. You can select from dropdown or enter custom rates.</p>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-section">
+                <div class="logo">SMJ</div>
+                <div class="brand-info">
+                    <h1>Exchange Bill - Shree Mahakaleshwar Jewellers</h1>
+                    <p class="tagline">Wear With Cheer</p>
                 </div>
             </div>
+            <div class="user-info">
+                <button class="btn-secondary" onclick="window.location.href='index.html'">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </button>
+                <button class="btn-logout" onclick="auth.logout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </header>
 
-            <!-- Right Column: Exchange Items -->
-            <div class="exchange-items-section">
-                <div class="tabs">
-                    <button class="tab-btn active" data-tab="oldItems">
-                        <i class="fas fa-box"></i> Old Items
-                    </button>
-                    <button class="tab-btn" data-tab="newItems">
-                        <i class="fas fa-gem"></i> New Items
-                    </button>
-                    <button class="tab-btn" data-tab="summary">
-                        <i class="fas fa-list-alt"></i> Summary
-                    </button>
+        <!-- Navigation -->
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="billing.html" class="nav-link">
+                        <i class="fas fa-file-invoice"></i> New Bill
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="exchange.html" class="nav-link">
+                        <i class="fas fa-exchange-alt"></i> Exchange
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="stocks.html" class="nav-link">
+                        <i class="fas fa-boxes"></i> Stock
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="reports.html" class="nav-link">
+                        <i class="fas fa-chart-bar"></i> Reports
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="admin.html" class="nav-link">
+                        <i class="fas fa-cog"></i> Admin
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="billing-container">
+                <!-- Exchange Rules -->
+                <div class="exchange-rules">
+                    <h4><i class="fas fa-exclamation-circle"></i> Exchange Business Rules</h4>
+                    <ul>
+                        <li><strong>3% Deduction:</strong> Automatic 3% deduction on exchange value</li>
+                        <li><strong>GST:</strong> 3% GST on metal value only (applied in billing)</li>
+                        <li><strong>Wastage:</strong> Typically 2-5% for old jewellery</li>
+                        <li><strong>Melting Charges:</strong> Apply if old jewellery needs melting</li>
+                        <li><strong>Market Rates:</strong> Use current market rates for valuation</li>
+                    </ul>
                 </div>
-                
-                <!-- Old Items Tab -->
-                <div class="tab-content active" id="oldItemsTab">
-                    <div class="section-title">
-                        <h4>Old Items for Exchange</h4>
-                        <button class="btn btn-primary btn-sm" id="addOldItemBtn">
-                            <i class="fas fa-plus"></i> Add Old Item
-                        </button>
+
+                <!-- Customer Details -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-user"></i> Customer Details</h3>
                     </div>
-                    
-                    <div class="items-container" id="oldItemsContainer">
-                        <!-- Old items will be added dynamically -->
-                        <div class="text-center text-muted" style="padding: 20px;">
-                            <i class="fas fa-plus-circle fa-2x"></i>
-                            <p>Add old items that customer wants to exchange</p>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="customerName" class="required">Customer Name</label>
+                                <input type="text" id="customerName" placeholder="Enter customer name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="customerPhone" class="required">Phone Number</label>
+                                <input type="tel" id="customerPhone" placeholder="10-digit phone number" pattern="[0-9]{10}" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="customerAddress">Address</label>
+                                <textarea id="customerAddress" rows="2" placeholder="Enter customer address"></textarea>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="help-text">
-                        <p><i class="fas fa-info-circle"></i> Enter the old jewellery details that customer wants to exchange. Wastage deduction and melting charges will be applied.</p>
-                    </div>
                 </div>
-                
-                <!-- New Items Tab -->
-                <div class="tab-content" id="newItemsTab">
-                    <div class="section-title">
-                        <h4>New Items to Purchase</h4>
-                        <button class="btn btn-primary btn-sm" id="addNewItemBtn">
-                            <i class="fas fa-plus"></i> Add New Item
-                        </button>
+
+                <!-- Item Type Tabs -->
+                <div class="item-tabs">
+                    <button class="item-tab active" onclick="showItemForm('old')">
+                        <i class="fas fa-box"></i> Old Items (Exchange)
+                    </button>
+                    <button class="item-tab" onclick="showItemForm('new')">
+                        <i class="fas fa-gem"></i> New Items (Purchase)
+                    </button>
+                </div>
+
+                <!-- Old Item Form -->
+                <div class="card item-form active" id="oldItemForm">
+                    <div class="card-header">
+                        <h3><i class="fas fa-box"></i> Old Item Details (For Exchange)</h3>
                     </div>
-                    
-                    <div class="items-container" id="newItemsContainer">
-                        <!-- New items will be added dynamically -->
-                        <div class="text-center text-muted" style="padding: 20px;">
-                            <i class="fas fa-plus-circle fa-2x"></i>
-                            <p>Add new items that customer wants to purchase</p>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="oldProductName" class="required">Product Name</label>
+                                <input type="text" id="oldProductName" placeholder="e.g., Old Gold Necklace" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="oldUnit" class="required">Unit</label>
+                                <select id="oldUnit" required>
+                                    <option value="">Select Unit</option>
+                                    <option value="PCS">PCS (Pieces)</option>
+                                    <option value="GM">GM (Grams)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="oldQuantity" class="required">Quantity</label>
+                                <input type="number" id="oldQuantity" min="1" step="1" value="1" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="oldGrossWeight" class="required">Gross Weight (g)</label>
+                                <input type="number" id="oldGrossWeight" min="0" step="0.001" placeholder="0.000" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="oldLessWeight">Less Weight (g)</label>
+                                <input type="number" id="oldLessWeight" min="0" step="0.001" placeholder="0.000">
+                            </div>
+                            <div class="form-group">
+                                <label for="oldNetWeight">Net Weight (g)</label>
+                                <input type="number" id="oldNetWeight" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="oldMetalType" class="required">Metal Type</label>
+                                <select id="oldMetalType" required>
+                                    <option value="">Select Metal</option>
+                                    <!-- Dynamically populated -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="oldPurity" class="required">Purity</label>
+                                <select id="oldPurity" required disabled>
+                                    <option value="">Select Purity</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="oldMarketRate" class="required">Market Rate (₹/g)</label>
+                                <input type="number" id="oldMarketRate" min="0" step="0.01" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="oldWastage">Wastage (%)</label>
+                                <input type="number" id="oldWastage" min="0" step="0.01" value="2">
+                            </div>
+                            <div class="form-group">
+                                <label for="oldMeltingCharges">Melting Charges (₹)</label>
+                                <input type="number" id="oldMeltingCharges" min="0" step="0.01" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="oldOtherCharges">Other Charges (₹)</label>
+                                <input type="number" id="oldOtherCharges" min="0" step="0.01" value="0">
+                            </div>
+                        </div>
+
+                        <div class="exchange-info">
+                            <p><i class="fas fa-info-circle"></i> Exchange Value = (Net Weight × Market Rate) - 3% - Wastage - Melting Charges</p>
+                        </div>
+
+                        <div class="calculation-summary">
+                            <div class="calc-item">
+                                <span>Metal Value:</span>
+                                <span id="oldMetalValueDisplay">₹0.00</span>
+                            </div>
+                            <div class="calc-item">
+                                <span>Exchange Deduction (-3%):</span>
+                                <span id="oldExchangeDeductionDisplay" class="text-danger">-₹0.00</span>
+                            </div>
+                            <div class="calc-item">
+                                <span>Wastage Deduction:</span>
+                                <span id="oldWastageDisplay" class="text-danger">-₹0.00</span>
+                            </div>
+                            <div class="calc-item">
+                                <span>Melting Charges:</span>
+                                <span id="oldMeltingChargesDisplay">₹0.00</span>
+                            </div>
+                            <div class="calc-item total">
+                                <span>Exchange Value:</span>
+                                <span id="oldTotalDisplay">₹0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button class="btn-secondary" id="clearOldItemBtn">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                            <button class="btn-primary" id="addOldItemBtn">
+                                <i class="fas fa-plus"></i> Add to Exchange
+                            </button>
                         </div>
                     </div>
-                    
-                    <div class="help-text">
-                        <p><i class="fas fa-info-circle"></i> Enter the new jewellery that customer wants to purchase. Making charges will be calculated based on type (%, Fixed, Per Gram).</p>
+                </div>
+
+                <!-- New Item Form -->
+                <div class="card item-form" id="newItemForm">
+                    <div class="card-header">
+                        <h3><i class="fas fa-gem"></i> New Item Details (To Purchase)</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newProductName" class="required">Product Name</label>
+                                <input type="text" id="newProductName" placeholder="e.g., New Gold Ring" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="newUnit" class="required">Unit</label>
+                                <select id="newUnit" required>
+                                    <option value="">Select Unit</option>
+                                    <option value="PCS">PCS (Pieces)</option>
+                                    <option value="GM">GM (Grams)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newQuantity" class="required">Quantity</label>
+                                <input type="number" id="newQuantity" min="1" step="1" value="1" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newGrossWeight" class="required">Gross Weight (g)</label>
+                                <input type="number" id="newGrossWeight" min="0" step="0.001" placeholder="0.000" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="newLessWeight">Less Weight (g)</label>
+                                <input type="number" id="newLessWeight" min="0" step="0.001" placeholder="0.000">
+                            </div>
+                            <div class="form-group">
+                                <label for="newNetWeight">Net Weight (g)</label>
+                                <input type="number" id="newNetWeight" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newMetalType" class="required">Metal Type</label>
+                                <select id="newMetalType" required>
+                                    <option value="">Select Metal</option>
+                                    <!-- Dynamically populated -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newPurity" class="required">Purity</label>
+                                <select id="newPurity" required disabled>
+                                    <option value="">Select Purity</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newRate" class="required">Rate (₹/g)</label>
+                                <input type="number" id="newRate" min="0" step="0.01" required readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newMakingChargeType" class="required">Making Charge Type</label>
+                                <select id="newMakingChargeType" required>
+                                    <option value="FIX">FIX (₹)</option>
+                                    <option value="%" selected>% (Percentage)</option>
+                                    <option value="GRM">GRM (₹ per gram)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newMakingChargeValue" class="required">Making Charge Value</label>
+                                <input type="number" id="newMakingChargeValue" min="0" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="newDiscountOnMaking">Discount on Making (₹)</label>
+                                <input type="number" id="newDiscountOnMaking" min="0" step="0.01" value="0">
+                            </div>
+                        </div>
+
+                        <div class="calculation-summary">
+                            <div class="calc-item">
+                                <span>Metal Value:</span>
+                                <span id="newMetalValueDisplay">₹0.00</span>
+                            </div>
+                            <div class="calc-item">
+                                <span>Making Charge:</span>
+                                <span id="newMakingChargeDisplay">₹0.00</span>
+                            </div>
+                            <div class="calc-item total">
+                                <span>Item Total:</span>
+                                <span id="newTotalDisplay">₹0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button class="btn-secondary" id="clearNewItemBtn">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                            <button class="btn-primary" id="addNewItemBtn">
+                                <i class="fas fa-plus"></i> Add to Purchase
+                            </button>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Summary Tab -->
-                <div class="tab-content" id="summaryTab">
-                    <div class="exchange-summary">
-                        <h4>Exchange Summary</h4>
+
+                <!-- Items Summary Tables -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-list"></i> Exchange Items Summary</h3>
+                        <span class="badge" id="exchangeItemCount">0 items</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="data-table" id="exchangeItemsTable">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Product</th>
+                                        <th>Type</th>
+                                        <th>Metal/Purity</th>
+                                        <th>Weight</th>
+                                        <th>Rate</th>
+                                        <th>Value</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="exchangeItemsTableBody">
+                                    <!-- Items will be added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exchange Summary -->
+                <div class="exchange-summary-grid" id="exchangeSummarySection">
+                    <div class="summary-card">
+                        <div class="summary-label">Old Items Total</div>
+                        <div class="summary-value" id="oldItemsTotal">₹0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">New Items Total</div>
+                        <div class="summary-value" id="newItemsTotal">₹0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Exchange Value</div>
+                        <div class="summary-value" id="exchangeValueTotal">₹0.00</div>
+                    </div>
+                    <div class="summary-card total">
+                        <div class="summary-label">Balance</div>
+                        <div class="summary-value" id="balanceTotal">₹0.00</div>
+                    </div>
+                </div>
+
+                <!-- Balance Section -->
+                <div class="balance-section" id="balanceSection" style="display: none;">
+                    <h4 class="text-center">Final Settlement</h4>
+                    <div class="balance-amount" id="balanceAmount">
+                        ₹0.00
+                    </div>
+                    <p class="text-center" id="balanceLabel">
+                        <!-- Will be populated dynamically -->
+                    </p>
+                </div>
+
+                <!-- GST Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-receipt"></i> GST Details (For New Items)</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="cgst">CGST (₹)</label>
+                                <input type="number" id="cgst" min="0" step="0.01" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="sgst">SGST (₹)</label>
+                                <input type="number" id="sgst" min="0" step="0.01" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="igst">IGST (₹)</label>
+                                <input type="number" id="igst" min="0" step="0.01" value="0">
+                            </div>
+                        </div>
+                        <div class="gst-info">
+                            <p><strong>Note:</strong> GST is applicable only on new purchase items.</p>
+                            <p>Total GST: <span id="totalGSTDisplay">₹0.00</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment & Final Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-money-bill-wave"></i> Payment Details</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="paymentMethod" class="required">Payment Method</label>
+                                <select id="paymentMethod" required>
+                                    <option value="cash">Cash</option>
+                                    <option value="card">Card</option>
+                                    <option value="upi">UPI</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="paymentStatus" class="required">Payment Status</label>
+                                <select id="paymentStatus" required>
+                                    <option value="paid">Paid</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="partial">Partial</option>
+                                </select>
+                            </div>
+                        </div>
                         
-                        <div class="summary-cards">
-                            <div class="summary-card">
-                                <div class="card-icon">
-                                    <i class="fas fa-box-open"></i>
-                                </div>
-                                <div class="card-content">
-                                    <div class="card-label">Old Items Total</div>
-                                    <div class="card-value" id="oldItemsTotal">₹0.00</div>
-                                </div>
-                            </div>
-                            
-                            <div class="summary-card">
-                                <div class="card-icon">
-                                    <i class="fas fa-shopping-cart"></i>
-                                </div>
-                                <div class="card-content">
-                                    <div class="card-label">New Items Total</div>
-                                    <div class="card-value" id="newItemsTotal">₹0.00</div>
-                                </div>
-                            </div>
-                            
-                            <div class="summary-card balance-payable" id="balancePayableCard" style="display: none;">
-                                <div class="card-icon">
-                                    <i class="fas fa-hand-holding-usd"></i>
-                                </div>
-                                <div class="card-content">
-                                    <div class="card-label">Balance Payable</div>
-                                    <div class="card-value" id="balancePayable">₹0.00</div>
-                                </div>
-                            </div>
-                            
-                            <div class="summary-card balance-refund" id="balanceRefundableCard" style="display: none;">
-                                <div class="card-icon">
-                                    <i class="fas fa-money-bill-wave"></i>
-                                </div>
-                                <div class="card-content">
-                                    <div class="card-label">Balance Refundable</div>
-                                    <div class="card-value" id="balanceRefundable">₹0.00</div>
-                                </div>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label for="exchangeNotes">Exchange Notes</label>
+                                <textarea id="exchangeNotes" rows="3" placeholder="Additional notes about the exchange transaction..."></textarea>
                             </div>
                         </div>
-                        
-                        <div class="exchange-notes">
-                            <h5><i class="fas fa-sticky-note"></i> Notes</h5>
-                            <ul>
-                                <li><strong>Business Rule:</strong> Exchange value = Market Rate - 3%</li>
-                                <li><strong>Wastage:</strong> Typically 2-5% for old jewellery (deducted from weight)</li>
-                                <li><strong>Melting charges:</strong> Apply if old jewellery needs to be melted</li>
-                                <li><strong>Making charges:</strong> Apply only to new items (%, Fixed, or Per Gram)</li>
-                                <li><strong>GST:</strong> 3% on metal value only (applied in billing)</li>
-                            </ul>
+
+                        <!-- Final Actions -->
+                        <div class="final-actions">
+                            <button class="btn-secondary" id="clearExchangeBtn">
+                                <i class="fas fa-trash"></i> Clear All
+                            </button>
+                            <button class="btn-warning" id="calculateExchangeBtn">
+                                <i class="fas fa-calculator"></i> Calculate Exchange
+                            </button>
+                            <button class="btn-success" id="completeExchangeBtn" disabled>
+                                <i class="fas fa-exchange-alt"></i> Complete Exchange
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
 
-        <!-- Action Buttons -->
-        <div class="action-section">
-            <div class="action-buttons">
-                <button class="btn btn-warning btn-lg" id="calculateExchangeBtn">
-                    <i class="fas fa-calculator"></i> Calculate Exchange
-                </button>
-                <button class="btn btn-success btn-lg" id="proceedToBillingBtn" disabled>
-                    <i class="fas fa-file-invoice-dollar"></i> Proceed to Billing
-                </button>
-                <button class="btn btn-outline btn-lg" id="resetExchangeBtn">
-                    <i class="fas fa-times"></i> Reset All
-                </button>
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Shree Mahakaleshwar Jewellers Exchange System | Fixed 3% Exchange Deduction | GST on New Items Only</p>
+        </footer>
+    </div>
+
+    <!-- Exchange Success Modal -->
+    <div class="modal" id="exchangeSuccessModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Exchange Completed Successfully!</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="success-message">
+                    <i class="fas fa-check-circle"></i>
+                    <p>Exchange transaction has been completed and bill is generated.</p>
+                    <p><strong>Bill Number:</strong> <span id="generatedExchangeBillNumber"></span></p>
+                    <p><strong>Balance Amount:</strong> <span id="generatedBalanceAmount"></span></p>
+                    <p><strong>Status:</strong> <span id="generatedBalanceStatus"></span></p>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="printExchangeBill()">
+                        <i class="fas fa-print"></i> Print Bill
+                    </button>
+                    <button class="btn-primary" onclick="downloadExchangePDF()">
+                        <i class="fas fa-download"></i> Download PDF
+                    </button>
+                    <button class="btn-success" onclick="sendExchangeWhatsApp()">
+                        <i class="fab fa-whatsapp"></i> Send via WhatsApp
+                    </button>
+                    <button class="btn-info" onclick="window.location.href='exchange.html'">
+                        <i class="fas fa-redo"></i> New Exchange
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="js/auth.js"></script>
-    <script>
-        // Auto-init script
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load exchange.js
-            const script = document.createElement('script');
-            script.src = 'js/exchange.js';
-            script.onload = function() {
-                // Initialize exchange system after auth check
-                if (window.auth && window.auth.isAuthenticated && window.auth.isAuthenticated()) {
-                    if (window.auth.isStaff && window.auth.isStaff()) {
-                        window.exchangeSystem = new ExchangeSystem();
-                        
-                        // Setup tab switching
-                        document.querySelectorAll('.tab-btn').forEach(btn => {
-                            btn.addEventListener('click', function() {
-                                const tabName = this.getAttribute('data-tab');
-                                showTab(tabName);
-                            });
-                        });
-                        
-                        // Setup event listeners
-                        setupExchangeEventListeners();
-                        
-                        console.log('Exchange system initialized successfully');
-                        
-                    } else {
-                        window.location.href = 'index.html';
-                        alert('Access denied. Staff privileges required.');
-                    }
-                } else {
-                    window.location.href = 'login.html';
-                }
-            };
-            script.onerror = function() {
-                console.error('Failed to load exchange.js');
-                showAlert('danger', 'Failed to load exchange system. Please refresh the page.');
-            };
-            document.body.appendChild(script);
-        });
-        
-        // Tab switching functionality
-        function showTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Remove active class from all buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Show selected tab
-            document.getElementById(tabName + 'Tab').classList.add('active');
-            
-            // Activate selected button
-            document.querySelector(`.tab-btn[data-tab="${tabName}"]`).classList.add('active');
-        }
-        
-        // Setup event listeners
-        function setupExchangeEventListeners() {
-            // Tab switching
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const tabName = this.getAttribute('data-tab');
-                    showTab(tabName);
-                });
-            });
-            
-            // Window resize for responsive layout
-            window.addEventListener('resize', function() {
-                if (window.exchangeSystem && window.exchangeSystem.updateResponsiveLayout) {
-                    window.exchangeSystem.updateResponsiveLayout();
-                }
-            });
-        }
-        
-        // Simple alert function for script errors
-        function showAlert(type, message) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type}`;
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
-            `;
-            
-            const container = document.getElementById('alertContainer');
-            if (container) {
-                container.appendChild(alertDiv);
-                
-                // Auto-remove after 5 seconds
-                setTimeout(() => {
-                    if (alertDiv.parentElement) {
-                        alertDiv.remove();
-                    }
-                }, 5000);
-            }
-        }
-    </script>
+    <script src="js/exchange.js"></script>
 </body>
 </html>
