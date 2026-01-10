@@ -1,16 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const reportController = require('../controllers/reportController');
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 
-// All report routes are protected
+// All routes require authentication
 router.use(auth);
 
-// Sales reports (admin only)
-router.get('/sales', adminOnly, reportController.getSalesReport);
-router.get('/ai-analysis', adminOnly, reportController.getAIAnalysis);
-router.get('/customer', adminOnly, reportController.getCustomerReport);
-router.get('/stock', adminOnly, reportController.getStockReport);
-router.get('/gst', adminOnly, reportController.getGSTReport);
+// Dashboard overview
+router.get('/overview', reportController.getDashboardOverview);
+
+// Sales report
+router.get('/sales', reportController.getSalesReport);
+
+// Stock report
+router.get('/stock', reportController.getStockReport);
+
+// GST report
+router.get('/gst', reportController.getGSTReport);
+
+// Exchange report
+router.get('/exchange', reportController.getExchangeReport);
+
+// Export reports
+router.get('/export', reportController.exportReport);
 
 module.exports = router;
