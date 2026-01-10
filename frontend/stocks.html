@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMJ ERP | Stock Management</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .stock-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            border-top: 4px solid #D4AF37;
+        }
+        
+        .stat-card.low-stock {
+            border-top-color: #dc3545;
+        }
+        
+        .stat-card.out-of-stock {
+            border-top-color: #ffc107;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .stock-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stock-filters {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .stock-alerts {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .alert-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #ffc107;
+            background: #fff3cd;
+        }
+        
+        .alert-item.critical {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        
+        .alert-item.warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        
+        .alert-item.info {
+            border-left-color: #17a2b8;
+            background: #d1ecf1;
+        }
+        
+        .stock-chart {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .stock-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .stock-modal.show {
+            display: flex;
+        }
+        
+        .stock-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-row {
+                flex-direction: column;
+            }
+            
+            .filter-group {
+                width: 100%;
+            }
+            
+            .stock-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-section">
+                <div class="logo">SMJ</div>
+                <div class="brand-info">
+                    <h1>Stock Management - Shree Mahakaleshwar Jewellers</h1>
+                    <p class="tagline">Wear With Cheer</p>
+                </div>
+            </div>
+            <div class="user-info">
+                <button class="btn-secondary" onclick="window.location.href='index.html'">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </button>
+                <button class="btn-logout" onclick="auth.logout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="billing.html" class="nav-link">
+                        <i class="fas fa-file-invoice"></i> New Bill
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="exchange.html" class="nav-link">
+                        <i class="fas fa-exchange-alt"></i> Exchange
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="stocks.html" class="nav-link">
+                        <i class="fas fa-boxes"></i> Stock
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="reports.html" class="nav-link">
+                        <i class="fas fa-chart-bar"></i> Reports
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="admin.html" class="nav-link">
+                        <i class="fas fa-cog"></i> Admin
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="billing-container">
+                <!-- Stock Statistics -->
+                <div class="stock-stats-grid" id="stockStats">
+                    <!-- Will be populated by stock.js -->
+                </div>
+
+                <!-- Stock Actions -->
+                <div class="stock-actions">
+                    <button class="btn-primary" id="addStockBtn">
+                        <i class="fas fa-plus"></i> Add New Stock
+                    </button>
+                    <button class="btn-success" id="importStockBtn">
+                        <i class="fas fa-file-import"></i> Import Stock
+                    </button>
+                    <button class="btn-warning" id="adjustStockBtn">
+                        <i class="fas fa-adjust"></i> Stock Adjustment
+                    </button>
+                    <button class="btn-info" id="transferStockBtn">
+                        <i class="fas fa-exchange-alt"></i> Stock Transfer
+                    </button>
+                    <button class="btn-danger" id="reconcileStockBtn">
+                        <i class="fas fa-sync-alt"></i> Stock Reconciliation
+                    </button>
+                    <button class="btn-secondary" id="exportStockBtn">
+                        <i class="fas fa-file-export"></i> Export Stock
+                    </button>
+                    <button class="btn-outline" id="refreshStockBtn">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+
+                <!-- Stock Filters -->
+                <div class="stock-filters">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>Search Stock</label>
+                            <input type="text" id="stockSearch" class="form-control" placeholder="Search by name, code, metal...">
+                        </div>
+                        <div class="filter-group">
+                            <label>Metal Type</label>
+                            <select id="filterMetal" class="form-control">
+                                <option value="">All Metals</option>
+                                <option value="Gold">Gold</option>
+                                <option value="Silver">Silver</option>
+                                <option value="Diamond">Diamond</option>
+                                <option value="Platinum">Platinum</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Stock Status</label>
+                            <select id="filterStatus" class="form-control">
+                                <option value="">All Status</option>
+                                <option value="in_stock">In Stock</option>
+                                <option value="low_stock">Low Stock</option>
+                                <option value="out_of_stock">Out of Stock</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <button class="btn btn-primary" id="applyFiltersBtn">
+                                <i class="fas fa-filter"></i> Apply Filters
+                            </button>
+                            <button class="btn btn-outline" id="clearFiltersBtn">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock Alerts -->
+                <div class="stock-alerts">
+                    <h4><i class="fas fa-exclamation-triangle"></i> Stock Alerts</h4>
+                    <div id="stockAlertsContainer">
+                        <!-- Will be populated by stock.js -->
+                    </div>
+                </div>
+
+                <!-- Stock Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-boxes"></i> Current Stock</h3>
+                        <span class="badge" id="stockItemCount">0 items</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="data-table" id="stockTable">
+                                <thead>
+                                    <tr>
+                                        <th>Item Code</th>
+                                        <th>Product Name</th>
+                                        <th>Metal/Purity</th>
+                                        <th>Category</th>
+                                        <th>Current Stock</th>
+                                        <th>Weight (g)</th>
+                                        <th>Cost Price</th>
+                                        <th>Selling Price</th>
+                                        <th>Reorder Level</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stockTableBody">
+                                    <!-- Will be populated by stock.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock Charts -->
+                <div class="stock-chart">
+                    <h4><i class="fas fa-chart-bar"></i> Stock Analysis</h4>
+                    <canvas id="stockChart" height="200"></canvas>
+                </div>
+
+                <!-- Stock History -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-history"></i> Recent Stock Movements</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="data-table" id="stockHistoryTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date/Time</th>
+                                        <th>Item</th>
+                                        <th>Type</th>
+                                        <th>Quantity</th>
+                                        <th>Weight</th>
+                                        <th>Reference</th>
+                                        <th>User</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stockHistoryTableBody">
+                                    <!-- Will be populated by stock.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Shree Mahakaleshwar Jewellers Stock Management System | Automatic Stock Updates | Low Stock Alerts</p>
+        </footer>
+    </div>
+
+    <!-- Stock Modals -->
+    
+    <!-- Add/Edit Stock Modal -->
+    <div class="stock-modal" id="stockModal">
+        <div class="stock-modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-box"></i> Stock Item Details</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="stockForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stockItemCode">Item Code</label>
+                            <input type="text" id="stockItemCode" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockProductName">Product Name</label>
+                            <input type="text" id="stockProductName" class="form-control" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stockCategory">Category</label>
+                            <select id="stockCategory" class="form-control" required>
+                                <option value="">Select Category</option>
+                                <option value="Ring">Ring</option>
+                                <option value="Necklace">Necklace</option>
+                                <option value="Bracelet">Bracelet</option>
+                                <option value="Earring">Earring</option>
+                                <option value="Bangle">Bangle</option>
+                                <option value="Chain">Chain</option>
+                                <option value="Pendant">Pendant</option>
+                                <option value="Others">Others</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockSubCategory">Sub Category</label>
+                            <input type="text" id="stockSubCategory" class="form-control" placeholder="Optional">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stockMetalType">Metal Type</label>
+                            <select id="stockMetalType" class="form-control" required>
+                                <option value="">Select Metal</option>
+                                <option value="Gold">Gold</option>
+                                <option value="Silver">Silver</option>
+                                <option value="Diamond">Diamond</option>
+                                <option value="Platinum">Platinum</option>
+                                <option value="Antique / Polki">Antique / Polki</option>
+                                <option value="Others">Others</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockPurity">Purity</label>
+                            <select id="stockPurity" class="form-control" required>
+                                <option value="">Select Purity</option>
+                                <option value="24K">24K</option>
+                                <option value="22K">22K</option>
+                                <option value="18K">18K</option>
+                                <option value="14K">14K</option>
+                                <option value="916">916</option>
+                                <option value="750">750</option>
+                                <option value="585">585</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stockQuantity">Quantity</label>
+                            <input type="number" id="stockQuantity" class="form-control" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockWeight">Weight (grams)</label>
+                            <input type="number" id="stockWeight" class="form-control" step="0.001" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stockCostPrice">Cost Price (₹)</label>
+                            <input type="number" id="stockCostPrice" class="form-control" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockSellingPrice">Selling Price (₹)</label>
+                            <input type="number" id="stockSellingPrice" class="form-control" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stockReorderLevel">Reorder Level</label>
+                            <input type="number" id="stockReorderLevel" class="form-control" min="0" value="5">
+                        </div>
+                        <div class="form-group">
+                            <label for="stockHUID">HUID (Optional)</label>
+                            <input type="text" id="stockHUID" class="form-control" placeholder="Hallmark Unique ID">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="stockDescription">Description</label>
+                        <textarea id="stockDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="stockImage">Product Image</label>
+                        <input type="file" id="stockImage" class="form-control" accept="image/*">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="saveStockBtn">
+                    <i class="fas fa-save"></i> Save Stock
+                </button>
+                <button class="btn btn-outline close-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Adjustment Modal -->
+    <div class="stock-modal" id="adjustmentModal">
+        <div class="stock-modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-adjust"></i> Stock Adjustment</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="adjustmentForm">
+                    <div class="form-group">
+                        <label for="adjustItemSelect">Select Item</label>
+                        <select id="adjustItemSelect" class="form-control" required>
+                            <option value="">Select Item</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="adjustCurrentQuantity">Current Quantity</label>
+                            <input type="number" id="adjustCurrentQuantity" class="form-control" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="adjustCurrentWeight">Current Weight (g)</label>
+                            <input type="number" id="adjustCurrentWeight" class="form-control" readonly step="0.001">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="adjustType">Adjustment Type</label>
+                            <select id="adjustType" class="form-control" required>
+                                <option value="">Select Type</option>
+                                <option value="add">Add Stock</option>
+                                <option value="remove">Remove Stock</option>
+                                <option value="set">Set Stock</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="adjustQuantity">Quantity Change</label>
+                            <input type="number" id="adjustQuantity" class="form-control" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="adjustWeightChange">Weight Change (g)</label>
+                            <input type="number" id="adjustWeightChange" class="form-control" step="0.001" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="adjustReason">Reason</label>
+                            <select id="adjustReason" class="form-control" required>
+                                <option value="">Select Reason</option>
+                                <option value="damaged">Damaged Goods</option>
+                                <option value="lost">Lost Stock</option>
+                                <option value="found">Found Stock</option>
+                                <option value="return">Customer Return</option>
+                                <option value="vendor_return">Vendor Return</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="adjustNotes">Notes</label>
+                        <textarea id="adjustNotes" class="form-control" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-warning" id="saveAdjustmentBtn">
+                    <i class="fas fa-save"></i> Save Adjustment
+                </button>
+                <button class="btn btn-outline close-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock History Modal -->
+    <div class="stock-modal" id="historyModal">
+        <div class="stock-modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-history"></i> Stock History</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="historyContent">
+                    <!-- Will be populated by stock.js -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline close-modal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Reconciliation Modal -->
+    <div class="stock-modal" id="reconciliationModal">
+        <div class="stock-modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-sync-alt"></i> Stock Reconciliation</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="reconciliationForm">
+                    <div class="form-group">
+                        <label for="reconcileItemSelect">Select Item</label>
+                        <select id="reconcileItemSelect" class="form-control" required>
+                            <option value="">Select Item</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>System Quantity</label>
+                            <input type="number" id="reconcileSystemQty" class="form-control" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Physical Quantity</label>
+                            <input type="number" id="reconcilePhysicalQty" class="form-control" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>System Weight (g)</label>
+                            <input type="number" id="reconcileSystemWeight" class="form-control" step="0.001" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Physical Weight (g)</label>
+                            <input type="number" id="reconcilePhysicalWeight" class="form-control" step="0.001" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reconcileVarianceReason">Variance Reason</label>
+                        <select id="reconcileVarianceReason" class="form-control" required>
+                            <option value="">Select Reason</option>
+                            <option value="counting_error">Counting Error</option>
+                            <option value="measurement_error">Measurement Error</option>
+                            <option value="theft">Theft</option>
+                            <option value="damage">Damage</option>
+                            <option value="unrecorded_sale">Unrecorded Sale</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reconcileNotes">Notes</label>
+                        <textarea id="reconcileNotes" class="form-control" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="saveReconciliationBtn">
+                    <i class="fas fa-sync-alt"></i> Reconcile Stock
+                </button>
+                <button class="btn btn-outline close-modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/stock.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Initialize stock system
+        let stockSystem;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            stockSystem = new StockSystem();
+            
+            // Modal close handlers
+            document.querySelectorAll('.modal-close, .close-modal').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const modal = this.closest('.stock-modal');
+                    if (modal) modal.classList.remove('show');
+                });
+            });
+            
+            // Close modal on outside click
+            document.querySelectorAll('.stock-modal').forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        this.classList.remove('show');
+                    }
+                });
+            });
+        });
+        
+        // Global functions for stock system
+        function viewStockHistory(stockId) {
+            if (stockSystem) {
+                stockSystem.viewHistory(stockId);
+            }
+        }
+        
+        function editStock(stockId) {
+            if (stockSystem) {
+                stockSystem.editStock(stockId);
+            }
+        }
+        
+        function deleteStock(stockId) {
+            if (stockSystem) {
+                stockSystem.deleteStock(stockId);
+            }
+        }
+    </script>
+</body>
+</html>
