@@ -1,15 +1,28 @@
-// Authentication module
-
 class Auth {
     constructor() {
         this.token = localStorage.getItem('token');
-        this.user = JSON.parse(localStorage.getItem('user') || 'null');
-        this.apiBase = 'http://localhost:5000/api';
+        this.user = JSON.parse(localStorage.getItem('user') || '{}');
     }
 
+    // Check if user is authenticated
+    isAuthenticated() {
+        return !!this.token && !!this.user._id;
+    }
+
+    // Check if user is admin
+    isAdmin() {
+        return this.isAuthenticated() && this.user.role === 'admin';
+    }
+
+    // Check if user is manager
+    isManager() {
+        return this.isAuthenticated() && (this.user.role === 'admin' || this.user.role === 'manager');
+    }
+
+    // Login function
     async login(email, password) {
         try {
-            const response = await fetch(`${this.apiBase}/auth/login`, {
+            const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -20,71 +33,91 @@ class Auth {
             const data = await response.json();
 
             if (data.success) {
+                // Store token and user data
                 this.token = data.token;
                 this.user = data.user;
                 
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 
-                return { success: true, user: data.user };
+                return {
+                    success: true,
+                    user: data.user
+                };
             } else {
-                return { success: false, message: data.message };
+                return {
+                    success: false,
+                    error: data.error || 'Login failed'
+                };
             }
         } catch (error) {
             console.error('Login error:', error);
-            return { success: false, message: 'Network error. Please try again.' };
+            return {
+                success: false,
+                error: 'Network error. Please try again.'
+            };
         }
     }
 
-    async register(userData) {
-        try {
-            const response = await fetch(`${this.apiBase}/auth/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(userData)
-            });
-
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('Registration error:', error);
-            return { success: false, message: 'Network error. Please try again.' };
-        }
-    }
-
+    // Logout function
     logout() {
-        this.token = null;
-        this.user = null;
+        // Clear local storage
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        
+        // Clear class properties
+        this.token = null;
+        this.user = {};
+        
+        // Redirect to login page
         window.location.href = 'login.html';
     }
 
-    isAuthenticated() {
-        return !!this.token;
+    // Get user profile
+    async getProfile() {
+        try {
+            const response = await fetch('/api/auth/profile', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Update local user data
+                this.user = data.user;
+                localStorage.setItem('user', JSON.stringify(data.user));
+                
+                return {
+                    success: true,
+                    user: data.user
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Failed to load profile'
+                };
+            }
+        } catch (error) {
+            console.error('Get profile error:', error);
+            
+            // If token is invalid, logout
+            if (error.status === 401) {
+                this.logout();
+            }
+            
+            return {
+                success: false,
+                error: 'Failed to load profile'
+            };
+        }
     }
 
-    isAdmin() {
-        return this.user && this.user.role === 'admin';
-    }
-
-    isStaff() {
-        return this.user && (this.user.role === 'staff' || this.user.role === 'admin');
-    }
-
-    getToken() {
-        return this.token;
-    }
-
-    getUser() {
-        return this.user;
-    }
-
+    // Update user profile
     async updateProfile(profileData) {
         try {
-            const response = await fetch(`${this.apiBase}/auth/profile`, {
+            const response = await fetch('/api/auth/profile', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -94,142 +127,414 @@ class Auth {
             });
 
             const data = await response.json();
-            
+
             if (data.success) {
-                this.user = data.user;
-                localStorage.setItem('user', JSON.stringify(data.user));
+                // Update local user data
+                this.user = { ...this.user, ...profileData };
+                localStorage.setItem('user', JSON.stringify(this.user));
+                
+                return {
+                    success: true,
+                    user: data.user
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Failed to update profile'
+                };
             }
-            
-            return data;
         } catch (error) {
             console.error('Update profile error:', error);
-            return { success: false, message: 'Network error' };
+            return {
+                success: false,
+                error: 'Failed to update profile'
+            };
         }
     }
 
+    // Change password
     async changePassword(currentPassword, newPassword) {
         try {
-            const response = await fetch(`${this.apiBase}/auth/change-password`, {
+            const response = await fetch('/api/auth/change-password', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.token}`
                 },
-                body: JSON.stringify({ currentPassword, newPassword })
+                body: JSON.stringify({
+                    currentPassword,
+                    newPassword
+                })
             });
 
-            return await response.json();
+            const data = await response.json();
+
+            if (data.success) {
+                return {
+                    success: true,
+                    message: data.message || 'Password changed successfully'
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Failed to change password'
+                };
+            }
         } catch (error) {
             console.error('Change password error:', error);
-            return { success: false, message: 'Network error' };
+            return {
+                success: false,
+                error: 'Failed to change password'
+            };
         }
     }
-}
 
-// Initialize auth instance
-const auth = new Auth();
+    // Validate token
+    async validateToken() {
+        if (!this.token) {
+            return { valid: false, reason: 'No token found' };
+        }
 
-// DOM ready function for login page
-if (document.getElementById('loginForm')) {
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        
-        const loginBtn = document.getElementById('loginBtn');
-        const originalText = loginBtn.innerHTML;
-        loginBtn.innerHTML = '<span class="spinner"></span> Logging in...';
-        loginBtn.disabled = true;
-        
-        const result = await auth.login(email, password);
-        
-        if (result.success) {
-            showAlert('success', 'Login successful! Redirecting...');
-            
-            // Redirect based on role
-            setTimeout(() => {
-                if (result.user.role === 'admin') {
-                    window.location.href = 'admin.html';
-                } else {
-                    window.location.href = 'billing.html';
+        try {
+            const response = await fetch('/api/auth/profile', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
                 }
-            }, 1000);
-        } else {
-            showAlert('danger', result.message);
-            loginBtn.innerHTML = originalText;
-            loginBtn.disabled = false;
-        }
-    });
-}
+            });
 
-// Utility functions
-function showAlert(type, message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type}`;
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
-    `;
-    
-    const container = document.querySelector('.auth-box') || document.querySelector('.main-container');
-    container.insertBefore(alertDiv, container.firstChild);
-    
-    setTimeout(() => alertDiv.remove(), 5000);
-}
+            if (response.ok) {
+                return { valid: true };
+            } else {
+                return { valid: false, reason: 'Invalid token' };
+            }
+        } catch (error) {
+            return { valid: false, reason: 'Network error' };
+        }
+    }
 
-// Check authentication on page load
-document.addEventListener('DOMContentLoaded', () => {
-    const publicPages = ['login.html', 'index.html'];
-    const currentPage = window.location.pathname.split('/').pop();
-    
-    // Redirect to login if not authenticated
-    if (!publicPages.includes(currentPage) && !auth.isAuthenticated()) {
-        window.location.href = 'login.html';
-        return;
-    }
-    
-    // Redirect away from login if already authenticated
-    if (currentPage === 'login.html' && auth.isAuthenticated()) {
-        if (auth.isAdmin()) {
-            window.location.href = 'admin.html';
-        } else {
-            window.location.href = 'billing.html';
+    // Force logout if token is invalid
+    async checkAuth() {
+        if (!this.isAuthenticated()) {
+            window.location.href = 'login.html';
+            return;
         }
-        return;
-    }
-    
-    // Show user info in navbar
-    if (auth.isAuthenticated()) {
-        const userInfoElements = document.querySelectorAll('.user-info');
-        userInfoElements.forEach(element => {
-            const user = auth.getUser();
-            element.innerHTML = `
-                <div class="user-avatar">${user.name.charAt(0)}</div>
-                <div>
-                    <div class="user-name">${user.name}</div>
-                    <div class="user-role">${user.role}</div>
-                </div>
-                <button class="btn btn-outline btn-sm" onclick="auth.logout()">Logout</button>
-            `;
-        });
-    }
-    
-    // Show/hide elements based on role
-    if (auth.isAuthenticated()) {
-        // Hide admin links from non-admin users
-        if (!auth.isAdmin()) {
-            const adminLinks = document.querySelectorAll('[data-role="admin"]');
-            adminLinks.forEach(link => link.style.display = 'none');
+
+        const validation = await this.validateToken();
+        if (!validation.valid) {
+            this.logout();
         }
+    }
+
+    // Get authorization header
+    getAuthHeader() {
+        return {
+            'Authorization': `Bearer ${this.token}`
+        };
+    }
+
+    // Register new user (admin only)
+    async registerUser(userData) {
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify(userData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                return {
+                    success: true,
+                    user: data.user,
+                    message: data.message || 'User registered successfully'
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Failed to register user'
+                };
+            }
+        } catch (error) {
+            console.error('Register user error:', error);
+            
+            // Check if unauthorized (not admin)
+            if (error.status === 403) {
+                return {
+                    success: false,
+                    error: 'Admin access required'
+                };
+            }
+            
+            return {
+                success: false,
+                error: 'Failed to register user'
+            };
+        }
+    }
+
+    // Get all users (admin only)
+    async getUsers() {
+        try {
+            const response = await fetch('/api/auth/users', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                return {
+                    success: true,
+                    users: data.users
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Failed to get users'
+                };
+            }
+        } catch (error) {
+            console.error('Get users error:', error);
+            
+            if (error.status === 403) {
+                return {
+                    success: false,
+                    error: 'Admin access required'
+                };
+            }
+            
+            return {
+                success: false,
+                error: 'Failed to get users'
+            };
+        }
+    }
+
+    // Update user (admin only)
+    async updateUser(userId, userData) {
+        try {
+            const response = await fetch(`/api/auth/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify(userData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                return {
+                    success: true,
+                    user: data.user,
+                    message: data.message || 'User updated successfully'
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Failed to update user'
+                };
+            }
+        } catch (error) {
+            console.error('Update user error:', error);
+            
+            if (error.status === 403) {
+                return {
+                    success: false,
+                    error: 'Admin access required'
+                };
+            }
+            
+            return {
+                success: false,
+                error: 'Failed to update user'
+            };
+        }
+    }
+
+    // Delete user (admin only)
+    async deleteUser(userId) {
+        try {
+            const response = await fetch(`/api/auth/users/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                return {
+                    success: true,
+                    message: data.message || 'User deleted successfully'
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Failed to delete user'
+                };
+            }
+        } catch (error) {
+            console.error('Delete user error:', error);
+            
+            if (error.status === 403) {
+                return {
+                    success: false,
+                    error: 'Admin access required'
+                };
+            }
+            
+            return {
+                success: false,
+                error: 'Failed to delete user'
+            };
+        }
+    }
+
+    // Toggle user status (admin only)
+    async toggleUserStatus(userId, isActive) {
+        try {
+            const response = await fetch(`/api/auth/users/${userId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({ isActive })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                return {
+                    success: true,
+                    message: data.message || 'User status updated successfully'
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Failed to update user status'
+                };
+            }
+        } catch (error) {
+            console.error('Toggle user status error:', error);
+            
+            if (error.status === 403) {
+                return {
+                    success: false,
+                    error: 'Admin access required'
+                };
+            }
+            
+            return {
+                success: false,
+                error: 'Failed to update user status'
+            };
+        }
+    }
+
+    // Reset user password (admin only)
+    async resetUserPassword(userId) {
+        try {
+            const response = await fetch(`/api/auth/users/${userId}/reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                return {
+                    success: true,
+                    message: data.message || 'Password reset successfully',
+                    temporaryPassword: data.temporaryPassword // Only for admin view
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Failed to reset password'
+                };
+            }
+        } catch (error) {
+            console.error('Reset password error:', error);
+            
+            if (error.status === 403) {
+                return {
+                    success: false,
+                    error: 'Admin access required'
+                };
+            }
+            
+            return {
+                success: false,
+                error: 'Failed to reset password'
+            };
+        }
+    }
+
+    // Session timeout handler
+    initSessionTimeout(timeoutMinutes = 30) {
+        let timeout;
         
-        // Hide staff links from viewers
-        if (auth.getUser().role === 'viewer') {
-            const staffLinks = document.querySelectorAll('[data-role="staff"]');
-            staffLinks.forEach(link => link.style.display = 'none');
-        }
+        const resetTimeout = () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                this.logout();
+                alert('Your session has expired. Please login again.');
+            }, timeoutMinutes * 60 * 1000);
+        };
+        
+        // Reset timeout on user activity
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+        events.forEach(event => {
+            document.addEventListener(event, resetTimeout);
+        });
+        
+        // Initial timeout setup
+        resetTimeout();
+    }
+
+    // Get user permissions
+    getPermissions() {
+        const permissions = {
+            canViewDashboard: true,
+            canCreateBills: this.isAuthenticated(),
+            canViewReports: this.isAuthenticated(),
+            canManageStock: this.isManager(),
+            canManageUsers: this.isAdmin(),
+            canManageRates: this.isAdmin(),
+            canViewAIInsights: this.isManager()
+        };
+        
+        return permissions;
+    }
+
+    // Check if user has permission
+    hasPermission(permission) {
+        const permissions = this.getPermissions();
+        return permissions[permission] || false;
+    }
+}
+
+// Create global auth instance
+window.auth = new Auth();
+
+// Auto-check auth on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Don't check on login page
+    if (!window.location.pathname.includes('login.html')) {
+        auth.checkAuth();
+        
+        // Initialize session timeout (30 minutes)
+        auth.initSessionTimeout(30);
     }
 });
-
-// Make auth available globally
-window.auth = auth;
