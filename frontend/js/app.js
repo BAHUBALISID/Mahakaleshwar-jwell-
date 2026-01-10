@@ -1,138 +1,395 @@
-// Main Application Module
-
-class JewelleryApp {
+class App {
     constructor() {
-        this.apiBase = 'http://localhost:5000/api';
+        this.token = localStorage.getItem('token');
+        this.user = JSON.parse(localStorage.getItem('user') || '{}');
         this.init();
     }
 
-    init() {
-        this.setupServiceWorker();
-        this.setupOfflineDetection();
-        this.setupGlobalEventListeners();
-        this.checkForUpdates();
-        this.setupErrorHandling();
-    }
-
-    setupServiceWorker() {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then(registration => {
-                    console.log('Service Worker registered:', registration);
-                })
-                .catch(error => {
-                    console.log('Service Worker registration failed:', error);
-                });
+    async init() {
+        // Check authentication
+        if (!this.token || !this.user._id) {
+            window.location.href = 'login.html';
+            return;
         }
-    }
 
-    setupOfflineDetection() {
-        // Update online/offline status
-        const updateOnlineStatus = () => {
-            const isOnline = navigator.onLine;
-            document.body.classList.toggle('offline', !isOnline);
-            
-            if (!isOnline) {
-                this.showOfflineNotification();
-            } else {
-                this.hideOfflineNotification();
-            }
-        };
-
-        window.addEventListener('online', updateOnlineStatus);
-        window.addEventListener('offline', updateOnlineStatus);
-        updateOnlineStatus(); // Initial check
-    }
-
-    showOfflineNotification() {
-        // Create or show offline notification
-        let notification = document.getElementById('offlineNotification');
+        // Update UI with user info
+        this.updateUserInfo();
         
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.id = 'offlineNotification';
-            notification.className = 'alert alert-warning';
-            notification.innerHTML = `
-                <i class="fas fa-wifi-slash"></i>
-                You are currently offline. Some features may be limited.
-                <button class="close" onclick="this.parentElement.remove()">&times;</button>
-            `;
-            document.body.prepend(notification);
+        // Set up real-time clock
+        this.updateClock();
+        setInterval(() => this.updateClock(), 1000);
+        
+        // Load dashboard data
+        await this.loadDashboardData();
+        
+        // Set up event listeners
+        this.setupEventListeners();
+        
+        // Initialize charts if on dashboard
+        if (window.location.pathname.includes('index.html')) {
+            this.initializeDashboardCharts();
         }
     }
 
-    hideOfflineNotification() {
-        const notification = document.getElementById('offlineNotification');
-        if (notification) {
-            notification.remove();
+    updateUserInfo() {
+        const userNameElement = document.getElementById('userName');
+        const userRoleElement = document.getElementById('userRole');
+        
+        if (userNameElement) {
+            userNameElement.textContent = this.user.name || 'User';
+        }
+        
+        if (userRoleElement) {
+            userRoleElement.textContent = this.user.role ? this.user.role.toUpperCase() : 'USER';
         }
     }
 
-    setupGlobalEventListeners() {
-        // Handle all fetch errors globally
-        const originalFetch = window.fetch;
-        window.fetch = async (...args) => {
-            try {
-                const response = await originalFetch(...args);
-                
-                // Handle 401 Unauthorized (token expired)
-                if (response.status === 401) {
-                    window.auth.logout();
-                    return response;
-                }
-                
-                // Handle 403 Forbidden
-                if (response.status === 403) {
-                    showAlert('danger', 'Access denied. Insufficient permissions.');
-                    return response;
-                }
-                
-                return response;
-            } catch (error) {
-                console.error('Fetch error:', error);
-                
-                if (!navigator.onLine) {
-                    showAlert('warning', 'You are offline. Please check your internet connection.');
-                } else {
-                    showAlert('danger', 'Network error. Please try again.');
-                }
-                
-                throw error;
-            }
-        };
-    }
-
-    checkForUpdates() {
-        // Check for app updates
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.ready.then(registration => {
-                registration.update();
+    updateClock() {
+        const timeElement = document.getElementById('currentTime');
+        if (timeElement) {
+            const now = new Date();
+            timeElement.textContent = now.toLocaleTimeString('en-IN', {
+                hour12: true,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
             });
         }
     }
 
-    setupErrorHandling() {
-        // Global error handler
-        window.addEventListener('error', (event) => {
-            console.error('Global error:', event.error);
+    async loadDashboardData() {
+        try {
+            const response = await fetch('/api/reports/overview', {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+
+            const data = await response.json();
             
-            // Don't show alert for minor errors
-            if (event.error instanceof TypeError && event.message.includes('fetch')) {
-                return; // Network errors are handled elsewhere
+            if (data.success) {
+                this.updateDashboardStats(data.stats);
+                this.updateRecentBills(data.recentBills || []);
+                
+                // Update charts if they exist
+                if (this.salesChart && data.dailyTrend) {
+                    this.updateSalesChart(data.dailyTrend);
+                }
+                
+                if (this.metalChart && data.metalSales) {
+                    this.updateMetalChart(data.metalSales);
+                }
             }
-            
-            // Show user-friendly error message
-            showAlert('danger', 'An unexpected error occurred. Please refresh the page.');
+        } catch (error) {
+            console.error('Load dashboard data error:', error);
+        }
+    }
+
+    updateDashboardStats(stats) {
+        const elements = {
+            'todaySales': stats.todaySales,
+            'todayBills': stats.todayBills,
+            'todayExchanges': stats.todayExchanges,
+            'lowStockItems': stats.lowStockItems,
+            'totalSales': stats.monthSales,
+            'totalBills': stats.totalBills || 0,
+            'totalGST': stats.totalGST || 0,
+            'totalExchange': stats.totalExchange || 0
+        };
+
+        Object.entries(elements).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) {
+                if (id.includes('Sales') || id.includes('GST') || id.includes('Exchange')) {
+                    element.textContent = `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+                } else {
+                    element.textContent = value.toLocaleString('en-IN');
+                }
+            }
         });
 
-        // Unhandled promise rejection
-        window.addEventListener('unhandledrejection', (event) => {
-            console.error('Unhandled promise rejection:', event.reason);
+        // Update sales change indicator
+        const salesChange = document.getElementById('salesChange');
+        if (salesChange && stats.salesChange !== undefined) {
+            const change = stats.salesChange;
+            salesChange.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+            salesChange.className = `stat-change ${change >= 0 ? 'positive' : 'negative'}`;
+        }
+    }
+
+    updateRecentBills(bills) {
+        const tbody = document.getElementById('recentBillsBody');
+        if (!tbody) return;
+
+        if (!bills || bills.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center">No recent bills</td>
+                </tr>
+            `;
+            return;
+        }
+
+        // Use first 5 bills
+        const recentBills = bills.slice(0, 5);
+        
+        tbody.innerHTML = recentBills.map(bill => `
+            <tr>
+                <td>${bill.billNumber}</td>
+                <td>${bill.customerName}</td>
+                <td>${new Date(bill.billDate).toLocaleDateString('en-IN')}</td>
+                <td>₹${bill.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <td>
+                    <span class="badge ${bill.paymentStatus === 'paid' ? 'badge-success' : 
+                        bill.paymentStatus === 'pending' ? 'badge-warning' : 'badge-info'}">
+                        ${bill.paymentStatus}
+                    </span>
+                </td>
+                <td>${bill.items?.length || 0}</td>
+                <td>
+                    <button class="btn-action" onclick="window.open('/api/bills/${bill._id}/pdf', '_blank')">
+                        <i class="fas fa-file-pdf"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    initializeDashboardCharts() {
+        // Initialize sales chart
+        const salesCtx = document.getElementById('salesChart');
+        if (salesCtx) {
+            this.salesChart = new Chart(salesCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Daily Sales (₹)',
+                        data: [],
+                        borderColor: '#D4AF37',
+                        backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#B8860B',
+                        pointBorderColor: '#FFFFFF',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#FFFFFF',
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Sales Trend',
+                            color: '#D4AF37',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#CCCCCC'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#CCCCCC',
+                                callback: function(value) {
+                                    return '₹' + value.toLocaleString('en-IN');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize metal chart
+        const metalCtx = document.getElementById('metalChart');
+        if (metalCtx) {
+            this.metalChart = new Chart(metalCtx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            '#D4AF37', // Gold
+                            '#C0C0C0', // Silver
+                            '#1E90FF', // Diamond
+                            '#FFD700', // Platinum
+                            '#B8860B', // Other Gold
+                            '#CD7F32'  // Other
+                        ],
+                        borderColor: '#000000',
+                        borderWidth: 1,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#FFFFFF',
+                                padding: 20,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Metal Distribution',
+                            color: '#D4AF37',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    updateSalesChart(dailyTrend) {
+        if (!this.salesChart || !dailyTrend) return;
+
+        const labels = dailyTrend.map(day => {
+            const date = new Date(day.date);
+            return date.toLocaleDateString('en-IN', { weekday: 'short' });
+        });
+        
+        const data = dailyTrend.map(day => day.dailySales);
+
+        this.salesChart.data.labels = labels;
+        this.salesChart.data.datasets[0].data = data;
+        this.salesChart.update();
+    }
+
+    updateMetalChart(metalSales) {
+        if (!this.metalChart || !metalSales) return;
+
+        const labels = metalSales.map(item => item.metal);
+        const data = metalSales.map(item => item.value);
+
+        this.metalChart.data.labels = labels;
+        this.metalChart.data.datasets[0].data = data;
+        this.metalChart.update();
+    }
+
+    setupEventListeners() {
+        // Logout button
+        const logoutBtn = document.querySelector('.btn-logout');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.logout();
+            });
+        }
+
+        // Refresh button
+        const refreshBtn = document.querySelector('.btn-refresh');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.loadDashboardData();
+            });
+        }
+
+        // Navigation active state
+        this.setupNavigation();
+    }
+
+    setupNavigation() {
+        const currentPath = window.location.pathname;
+        const navLinks = document.querySelectorAll('.nav-link');
+        
+        navLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            if (currentPath.includes(href) && href !== 'index.html') {
+                link.classList.add('active');
+            }
         });
     }
 
-    // Utility function to format currency
-    formatCurrency(amount) {
+    logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = 'login.html';
+    }
+
+    // Global alert function
+    static showAlert(message, type = 'info') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="close" onclick="this.parentElement.remove()">
+                &times;
+            </button>
+        `;
+        
+        const container = document.querySelector('.main-content') || document.body;
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        setTimeout(() => {
+            if (alertDiv.parentElement) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    // Global loading indicator
+    static showLoading(show, elementId = null) {
+        if (show) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading-overlay';
+            loadingDiv.innerHTML = `
+                <div class="spinner">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading...</p>
+                </div>
+            `;
+            loadingDiv.id = 'globalLoading';
+            
+            const target = elementId ? document.getElementById(elementId) : document.body;
+            if (target) {
+                target.appendChild(loadingDiv);
+            }
+        } else {
+            const loadingDiv = document.getElementById('globalLoading');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+        }
+    }
+
+    // Format currency
+    static formatCurrency(amount) {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
@@ -140,314 +397,68 @@ class JewelleryApp {
         }).format(amount);
     }
 
-    // Utility function to format date
-    formatDate(date, includeTime = false) {
-        const options = {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        };
+    // Format date
+    static formatDate(date, format = 'dd/mm/yyyy') {
+        const d = new Date(date);
         
-        if (includeTime) {
-            options.hour = '2-digit';
-            options.minute = '2-digit';
+        switch (format) {
+            case 'dd/mm/yyyy':
+                return d.toLocaleDateString('en-IN');
+            case 'dd-mm-yyyy':
+                return d.toLocaleDateString('en-IN').replace(/\//g, '-');
+            case 'full':
+                return d.toLocaleDateString('en-IN', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            default:
+                return d.toLocaleDateString('en-IN');
         }
-        
-        return new Date(date).toLocaleDateString('en-IN', options);
     }
 
-    // Utility function to validate mobile number
-    validateMobile(mobile) {
-        const mobileRegex = /^[6-9]\d{9}$/;
-        return mobileRegex.test(mobile);
+    // Validate phone number
+    static validatePhone(phone) {
+        const phoneRegex = /^[6-9]\d{9}$/;
+        return phoneRegex.test(phone);
     }
 
-    // Utility function to validate email
-    validateEmail(email) {
+    // Validate email
+    static validateEmail(email) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     }
 
-    // Utility function to validate PAN
-    validatePAN(pan) {
-        const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-        return panRegex.test(pan);
-    }
-
-    // Utility function to validate Aadhaar
-    validateAadhaar(aadhaar) {
-        const aadhaarRegex = /^\d{12}$/;
-        return aadhaarRegex.test(aadhaar);
-    }
-
-    // Show loading overlay
-    showLoading(container) {
-        const overlay = document.createElement('div');
-        overlay.className = 'loading-overlay';
-        overlay.innerHTML = `
-            <div class="spinner"></div>
-            <p>Loading...</p>
-        `;
-        
-        if (container) {
-            container.style.position = 'relative';
-            container.appendChild(overlay);
-        } else {
-            document.body.appendChild(overlay);
-        }
-        
-        return overlay;
-    }
-
-    // Hide loading overlay
-    hideLoading(overlay) {
-        if (overlay && overlay.parentNode) {
-            overlay.parentNode.removeChild(overlay);
-        }
-    }
-
-    // Confirm dialog
-    confirmDialog(message, confirmCallback, cancelCallback) {
-        const modal = document.createElement('div');
-        modal.className = 'modal show';
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width: 400px;">
-                <div class="modal-header">
-                    <h5>Confirm</h5>
-                    <button type="button" class="close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p>${message}</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
-                    <button type="button" class="btn btn-primary confirm-btn">Confirm</button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Close handlers
-        const closeModal = () => {
-            document.body.removeChild(modal);
-        };
-        
-        modal.querySelector('.close').addEventListener('click', closeModal);
-        modal.querySelector('.cancel-btn').addEventListener('click', () => {
-            closeModal();
-            if (cancelCallback) cancelCallback();
-        });
-        
-        modal.querySelector('.confirm-btn').addEventListener('click', () => {
-            closeModal();
-            if (confirmCallback) confirmCallback();
-        });
-        
-        // Close on outside click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closeModal();
-                if (cancelCallback) cancelCallback();
-            }
-        });
-    }
-
-    // Export data to CSV
-    exportToCSV(data, filename) {
-        if (!data || data.length === 0) {
-            showAlert('warning', 'No data to export');
-            return;
-        }
-        
-        const headers = Object.keys(data[0]);
-        const csvContent = [
-            headers.join(','),
-            ...data.map(row => headers.map(header => {
-                const cell = row[header];
-                // Escape quotes and wrap in quotes if contains comma
-                return typeof cell === 'string' && cell.includes(',') ?
-                    `"${cell.replace(/"/g, '""')}"` : cell;
-            }).join(','))
-        ].join('\n');
-        
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${filename}-${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    // Print HTML content
-    printHTML(htmlContent) {
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Print</title>
-                <link rel="stylesheet" href="css/print.css">
-                <style>
-                    body { font-family: Arial, sans-serif; }
-                    @media print { 
-                        @page { margin: 0; }
-                        body { margin: 1.6cm; }
-                    }
-                </style>
-            </head>
-            <body>
-                ${htmlContent}
-            </body>
-            </html>
-        `);
-        
-        printWindow.document.close();
-        printWindow.focus();
-        
-        // Wait for content to load
-        printWindow.onload = () => {
-            printWindow.print();
-            printWindow.close();
-        };
-    }
-
-    // Generate QR code
-    generateQRCode(text, size = 200) {
-        return new Promise((resolve) => {
-            try {
-                // Using simple QR code generation
-                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
-                resolve(qrCodeUrl);
-            } catch (error) {
-                console.error('QR generation error:', error);
-                resolve(null);
-            }
-        });
-    }
-
-    // Calculate age from date of birth
-    calculateAge(dob) {
-        const birthDate = new Date(dob);
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        
-        return age;
-    }
-
-    // Check if today is customer's birthday
-    isBirthday(dob) {
-        if (!dob) return false;
-        
-        const birthDate = new Date(dob);
-        const today = new Date();
-        
-        return birthDate.getDate() === today.getDate() &&
-               birthDate.getMonth() === today.getMonth();
-    }
-
-    // Apply birthday discount
-    applyBirthdayDiscount(total, dob) {
-        if (this.isBirthday(dob)) {
-            const discount = total * 0.05; // 5% birthday discount
-            return {
-                discountedTotal: total - discount,
-                discount: discount,
-                message: 'Happy Birthday! 5% discount applied.'
+    // Debounce function
+    static debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
             };
-        }
-        
-        return {
-            discountedTotal: total,
-            discount: 0,
-            message: ''
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Throttle function
+    static throttle(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
         };
     }
 }
 
-// Initialize main app
+// Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.jewelleryApp = new JewelleryApp();
-    
-    // Initialize tooltips
-    if (typeof bootstrap !== 'undefined') {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
-    }
-    
-    // Initialize popovers
-    if (typeof bootstrap !== 'undefined') {
-        const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-        popoverTriggerList.map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
-    }
-    
-    // Auto-hide alerts after 5 seconds
-    setTimeout(() => {
-        document.querySelectorAll('.alert:not(.alert-permanent)').forEach(alert => {
-            alert.remove();
-        });
-    }, 5000);
-});
-
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-    // Only register shortcuts when not in input field
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
-        return;
-    }
-    
-    // Ctrl/Cmd + N: New bill
-    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault();
-        if (window.location.pathname.includes('billing.html')) {
-            window.billingSystem.clearForm();
-        } else if (window.auth.isStaff()) {
-            window.location.href = 'billing.html';
-        }
-    }
-    
-    // Ctrl/Cmd + P: Print
-    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault();
-        if (window.location.pathname.includes('billing.html') && window.currentBill) {
-            window.billingSystem.printBill();
-        }
-    }
-    
-    // Ctrl/Cmd + S: Save/Search
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        const searchInput = document.querySelector('input[type="search"], #searchInput');
-        if (searchInput) {
-            searchInput.focus();
-        }
-    }
-    
-    // F1: Help
-    if (e.key === 'F1') {
-        e.preventDefault();
-        showAlert('info', `
-            <strong>Keyboard Shortcuts:</strong><br>
-            Ctrl+N: New Bill<br>
-            Ctrl+P: Print Bill<br>
-            Ctrl+S: Search<br>
-            F1: This help
-        `);
-    }
-    
-    // Escape: Close modals
-    if (e.key === 'Escape') {
-        const openModal = document.querySelector('.modal.show');
-        if (openModal) {
-            openModal.classList.remove('show');
-        }
-    }
+    window.app = new App();
 });
